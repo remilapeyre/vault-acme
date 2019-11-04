@@ -1,11 +1,14 @@
 vault := VAULT_ADDR=http://localhost:8200 vault
-server_url := https://acme-staging-v02.api.letsencrypt.org/directory
 GOX_OS := linux darwin windows freebsd openbsd solaris
 TEST_ARGS :=
 
 .PHONY: build
 build:
 	go build -o acme-plugin
+
+.PHONY: fmt
+fmt:
+	gofmt -w acme
 
 .PHONY: install
 install: build

@@ -2,6 +2,7 @@ package acme
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ func pathCerts(b *backend) *framework.Path {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"alternate_names": &framework.FieldSchema{
+			"alternative_names": &framework.FieldSchema{
 				Type: framework.TypeCommaStringSlice,
 			},
 		},
@@ -64,6 +65,66 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		return logical.ErrorResponse("This account does not exists"), nil
 	}
 
+	// Let's first check the cache to see if a cert already exists
+	if !r.DisableCache {
+		// Lookup cache
+		key, err := getCacheKey(r, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cache key: %v", err)
+		}
+		storageEntry, err := req.Storage.Get(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		if storageEntry != nil {
+			// Something was found in the cache
+			var d map[string]interface{}
+			storageEntry.DecodeJSON(&d)
+			data := d["data"].(map[string]interface{})
+			internalData := d["internal"].(map[string]interface{})
+
+			// Check if the cached cert is stale
+			layout := "2006-01-02 15:04:05.999999999 -0700 MST"
+			notBefore, err := time.Parse(layout, data["not_before"].(string))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse not_before: %v", err)
+			}
+			notAfter, err := time.Parse(layout, data["not_after"].(string))
+			if err != nil {
+				return nil, fmt.Errorf("Failed to parse not_after: %v", err)
+			}
+			certTTL := notAfter.Sub(notBefore).Seconds()
+			remaining := notAfter.Sub(time.Now()).Seconds()
+
+			if remaining > float64(r.CacheForRatio)*certTTL/100 {
+				b.Logger().Debug("Cached cert can be used")
+
+				internalData["cert"] = []byte(internalData["cert"].(string))
+				s := b.Secret(secretCertType).Response(data, internalData)
+				s.Secret.MaxTTL = notAfter.Sub(time.Now())
+
+				// I'm not sure how Vault handles concurrent requests and if
+				// a lock should have been taken here
+				users, err := d["users"].(json.Number).Int64()
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode users: %v", err)
+				}
+				d["users"] = users + 1
+				storageEntry, err = logical.StorageEntryJSON(key, d)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create cache entry: %v", err)
+				}
+				err = req.Storage.Put(ctx, storageEntry)
+				if err != nil {
+					return nil, fmt.Errorf("failed to save cache entry: %v", err)
+				}
+
+				return s, nil
+			}
+			b.Logger().Debug("Cached cert cannot be used")
+		}
+	}
+
 	client, err := u.getClient()
 
 	provider, err := dns.NewDNSChallengeProviderByName(u.Provider)
@@ -87,6 +148,60 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	}
 
 	// Use the helper to create the secret
+	key, err := getCacheKey(r, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache key: %v", err)
+	}
+	s, err := b.getSecret(path, key, cert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the secret: %v", err)
+	}
+
+	// Save the cert to the cache
+	if !r.DisableCache {
+		data := map[string]interface{}{
+			"users": 1,
+			"data":  s.Data,
+			"internal": map[string]interface{}{
+				"cache_key": key,
+				"account":   s.Secret.InternalData["account"],
+				"url":       s.Secret.InternalData["url"],
+				"cert":      s.Data["cert"],
+			},
+		}
+		storageEntry, err := logical.StorageEntryJSON(key, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create cache entry: %v", err)
+		}
+		err = req.Storage.Put(ctx, storageEntry)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save cache entry: %v", err)
+		}
+	}
+
+	return s, nil
+}
+
+func getCacheKey(r *role, data *framework.FieldData) (string, error) {
+	rolePath, err := json.Marshal(r)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshall role: %v", err)
+	}
+
+	d := make(map[string]interface{})
+	for key := range data.Schema {
+		d[key] = data.Get(key)
+	}
+	dataPath, err := json.Marshal(d)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshall data: %v", err)
+	}
+
+	return string(rolePath) + string(dataPath), nil
+}
+
+func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Resource) (*logical.Response, error) {
+	// Use the helper to create the secret
 	b.Logger().Debug("Preparing response")
 	certs, err := certcrypto.ParsePEMBundle(cert.Certificate)
 	if err != nil {
@@ -108,8 +223,10 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		},
 		// this will be used when revoking the certificate
 		map[string]interface{}{
-			"account": path,
-			"cert":    cert.Certificate,
+			"account":   accountPath,
+			"cert":      cert.Certificate,
+			"url":       cert.CertStableURL,
+			"cache_key": cacheKey,
 		})
 
 	s.Secret.MaxTTL = notAfter.Sub(time.Now())
@@ -118,7 +235,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 }
 
 func getNames(data *framework.FieldData) []string {
-	altNames := data.Get("alternate_names").([]string)
+	altNames := data.Get("alternative_names").([]string)
 	names := make([]string, len(altNames)+1)
 	names[0] = data.Get("common_name").(string)
 	for i, n := range altNames {

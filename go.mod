@@ -13,5 +13,6 @@ require (
 	github.com/hashicorp/vault v1.2.3 // indirect
 	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
 	github.com/hashicorp/vault/sdk v0.1.14-0.20190909201848-e0fbf9b652e2
+	github.com/mitchellh/mapstructure v1.1.2
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 )

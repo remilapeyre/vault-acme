@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"strings"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"golang.org/x/crypto/ocsp"
 )
 
 var serverURL string
@@ -106,7 +106,7 @@ func TestValidateNames(t *testing.T) {
 }
 
 func TestBackend(t *testing.T) {
-	serverURL = getEnv("TEST_SERVER_URL", "https://acme-staging-v02.api.letsencrypt.org/directory")
+	serverURL = getEnv("TEST_SERVER_URL", "https://localhost:14000/dir")
 
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
@@ -125,16 +125,16 @@ func TestBackend(t *testing.T) {
 	checkCreatingRoles(t, b, config.StorageView)
 
 	t.Log("Try to request certificates")
-	resp := checkCreatingCerts(t, b, config.StorageView)
+	firstCert, secondCert := checkCreatingCerts(t, b, config.StorageView)
 
 	// Try to run an HTTPS server with the certificate we got and query it
-	checkCertificate(t, resp)
+	checkCertificate(t, firstCert)
 
 	t.Log("Try to renew the lease")
-	checkRenewingCert(t, b, config.StorageView, resp.Secret)
+	checkRenewingCert(t, b, config.StorageView, firstCert.Secret)
 
 	t.Log("Try to revoke the lease")
-	checkRevokeCert(t, b, config.StorageView, resp)
+	checkRevokeCert(t, b, config.StorageView, firstCert, secondCert)
 
 	t.Log("Try to delete the role")
 	checkDeletingRole(t, b, config.StorageView)
@@ -214,19 +214,28 @@ func checkCreatingRoles(t *testing.T, b logical.Backend, storage logical.Storage
 	testCases := []testCase{
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra"},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string{}},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string(nil), "cache_for_ratio": 70, "disable_cache": false},
 		},
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allowed_domains": "sentry.lenstra.fr"},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string{"sentry.lenstra.fr"}},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string{"sentry.lenstra.fr"}, "cache_for_ratio": 70, "disable_cache": false},
 		},
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allow_bare_domains": true},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": true, "allow_subdomains": false, "allowed_domains": []string{}},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": true, "allow_subdomains": false, "allowed_domains": []string(nil), "cache_for_ratio": 70, "disable_cache": false},
 		},
 		{
+			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 50},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 50, "disable_cache": false},
+		},
+		{
+			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "disable_cache": true},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 70, "disable_cache": true},
+		},
+		// This one must be the last as the rest of the tests are using it
+		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 70, "disable_cache": false},
 		},
 	}
 	for _, tcase := range testCases {
@@ -241,7 +250,7 @@ func checkCreatingRoles(t *testing.T, b logical.Backend, storage logical.Storage
 	}
 }
 
-func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage) *logical.Response {
+func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage) (*logical.Response, *logical.Response) {
 	certReq := &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      "certs/foo",
@@ -257,9 +266,16 @@ func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage
 	// Try with alternate names
 	certReq.Data = map[string]interface{}{
 		"common_name":     "sentry.lenstra.fr",
-		"alternate_names": "grafana.lenstra.fr",
+		"alternative_names": "grafana.lenstra.fr",
 	}
-	return makeRequest(t, b, certReq, "")
+	first := makeRequest(t, b, certReq, "")
+	second := makeRequest(t, b, certReq, "")
+
+	// Since caching is enabled, we should get the same cert when calling the
+	// endoint twice
+	assertEqual(t, first.Data, second.Data)
+
+	return first, second
 }
 
 func checkRenewingCert(t *testing.T, b logical.Backend, storage logical.Storage, secret *logical.Secret) {
@@ -277,17 +293,19 @@ func checkRenewingCert(t *testing.T, b logical.Backend, storage logical.Storage,
 	}
 }
 
-func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, resp *logical.Response) {
+func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, first, second *logical.Response) {
 	certReq := &logical.Request{
 		Operation: logical.RevokeOperation,
 		Path:      "certs/lenstra.fr",
 		Storage:   storage,
-		Data:      map[string]interface{}{"common_name": "sentry.lenstra.fr"},
-		Secret:    resp.Secret,
+		Secret:    first.Secret,
 	}
 	makeRequest(t, b, certReq, "")
 
-	// Check the cert has been revoked
+	certReq.Secret = second.Secret
+	makeRequest(t, b, certReq, "")
+
+	// Check the cert status
 	u, err := getUser(context.Background(), storage, "accounts/lenstra")
 	if err != nil {
 		t.Fatal(err)
@@ -299,12 +317,14 @@ func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, r
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, ocspResponse, err := client.Certificate.GetOCSP([]byte(resp.Data["cert"].(string)))
-	if err != nil {
-		t.Fatal(err)
+
+	// Checking the OCSP status was not working for tests
+	err = client.Certificate.Revoke([]byte(second.Data["cert"].(string)))
+	if err == nil {
+		t.Fatalf("Trying to revoke the cert should have failed")
 	}
-	if ocspResponse.Status != ocsp.Revoked {
-		t.Fatalf("Certificate should be revoked but got: %d", ocspResponse.Status)
+	if !strings.Contains(err.Error(), "Certificate has already been revoked.") {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
@@ -373,7 +393,7 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	if err == nil {
 		t.Fatal("Was expecting error but got none.")
 	}
-	if err.Error() != "Get https://example.com: x509: certificate is valid for grafana.lenstra.fr, sentry.lenstra.fr, not example.com" {
+	if err.Error() != "Get https://example.com: x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" {
 		t.Fatalf("Got wrong error: %s", err.Error())
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/mitchellh/mapstructure"
 )
 
 func pathRoles(b *backend) *framework.Path {
@@ -24,6 +25,13 @@ func pathRoles(b *backend) *framework.Path {
 			"allow_subdomains": &framework.FieldSchema{
 				Type: framework.TypeBool,
 			},
+			"disable_cache": &framework.FieldSchema{
+				Type: framework.TypeBool,
+			},
+			"cache_for_ratio": &framework.FieldSchema{
+				Type:    framework.TypeInt,
+				Default: 70,
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.CreateOperation: b.roleCreateOrUpdate,
@@ -39,11 +47,18 @@ func (b *backend) roleCreateOrUpdate(ctx context.Context, req *logical.Request, 
 		return nil, err
 	}
 
+	cacheForRatio := data.Get("cache_for_ratio").(int)
+	if cacheForRatio <= 0 || cacheForRatio > 100 {
+		return logical.ErrorResponse("cache_for_ration should be greater than 0 and less than 100"), nil
+	}
+
 	r := role{
 		Account:          data.Get("account").(string),
 		AllowedDomains:   data.Get("allowed_domains").([]string),
 		AllowBareDomains: data.Get("allow_bare_domains").(bool),
 		AllowSubdomains:  data.Get("allow_subdomains").(bool),
+		DisableCache:     data.Get("disable_cache").(bool),
+		CacheForRatio:    cacheForRatio,
 	}
 	if err := r.save(ctx, req.Storage, req.Path); err != nil {
 		return nil, err
@@ -67,6 +82,8 @@ func (b *backend) roleRead(ctx context.Context, req *logical.Request, data *fram
 			"allowed_domains":    r.AllowedDomains,
 			"allow_bare_domains": r.AllowBareDomains,
 			"allow_subdomains":   r.AllowSubdomains,
+			"disable_cache":      r.DisableCache,
+			"cache_for_ratio":    r.CacheForRatio,
 		},
 	}, nil
 }
@@ -80,6 +97,8 @@ type role struct {
 	AllowedDomains   []string
 	AllowBareDomains bool
 	AllowSubdomains  bool
+	DisableCache     bool
+	CacheForRatio    int
 }
 
 func getRole(ctx context.Context, storage logical.Storage, path string) (*role, error) {
@@ -92,29 +111,28 @@ func getRole(ctx context.Context, storage logical.Storage, path string) (*role, 
 	}
 
 	var d map[string]interface{}
-	storageEntry.DecodeJSON(&d)
-
-	allowedDomains := make([]string, len(d["allowed_domains"].([]interface{})))
-	for i, domain := range d["allowed_domains"].([]interface{}) {
-		allowedDomains[i] = domain.(string)
+	err = storageEntry.DecodeJSON(&d)
+	if err != nil {
+		return nil, err
 	}
 
-	return &role{
-		Account:          d["account"].(string),
-		AllowedDomains:   allowedDomains,
-		AllowBareDomains: d["allow_bare_domains"].(bool),
-		AllowSubdomains:  d["allow_subdomains"].(bool),
-	}, nil
+	var r *role
+	err = mapstructure.Decode(d, &r)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func (r *role) save(ctx context.Context, storage logical.Storage, path string) error {
-	storageEntry, err := logical.StorageEntryJSON(path, map[string]interface{}{
-		"account":            r.Account,
-		"allowed_domains":    r.AllowedDomains,
-		"allow_bare_domains": r.AllowBareDomains,
-		"allow_subdomains":   r.AllowSubdomains,
-	})
+	var data map[string]interface{}
+	err := mapstructure.Decode(r, &data)
+	if err != nil {
+		return err
+	}
 
+	storageEntry, err := logical.StorageEntryJSON(path, data)
 	if err != nil {
 		return err
 	}

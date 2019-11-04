@@ -9,7 +9,7 @@ description: |-
 
 # ACME Secrets Engine
 
-The ACME secret engine generates X.509 certificates signed by s Certificate
+The ACME secret engine generates X.509 certificates signed by a Certificate
 Authority using the Automated Certificate Management Environment (ACME) standard.
 
 With this secrets engine, services can get certificates that can be presented to
@@ -192,9 +192,8 @@ restricted in the credentials they are allowed to read.
 If you get stuck at any time, simply run `vault path-help acme` or with a
 subpath for interactive help output.
 
-<!-- TODO(remi): Document the API
 ## API
 
-The PKI secrets engine has a full HTTP API. Please see the
+The ACME secrets engine has a full HTTP API. Please see the
 [ACME secrets engine API](/api/secret/acme/index.html) for more
-details. -->
+details.

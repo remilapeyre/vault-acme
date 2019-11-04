@@ -18,3 +18,14 @@ The documentation is available at `website/source/docs/secrets/acme/index.html.m
 After setting [`plugin_directory`](https://www.vaultproject.io/docs/configuration/#plugin_directory)
 and setting the correct shasum in Vault (`vault write sys/plugins/catalog/secret/acme sha_256=1b722cd0300bee3c19d72786a655d9d214b275e2c1ad1f42fc4ebd2af7c2f9d0 command=acme-plugin`)
 you can mount the plugin like any other: `vault secrets enable -path acme -plugin-name acme plugin`.
+
+
+## Tests
+
+Acceptance tests are run againts [Pebble](https://github.com/letsencrypt/pebble),
+a running container will be needed for them to pass:
+
+```bash
+$ docker run -d -e "PEBBLE_VA_NOSLEEP=1" -p 14000:14000 -p 15000:15000 letsencrypt/pebble pebble -dnsserver 1.1.1.1:53
+$ LEGO_CA_CERTIFICATES=$PWD/test/certs/pebble.minica.pem make test
+```
