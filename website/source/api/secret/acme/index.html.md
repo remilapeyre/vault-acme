@@ -26,6 +26,8 @@ update your API calls accordingly.
 * [Read Role](#read-role)
 * [Delete Role](#delete-role)
 * [Generate Certificate](#generate-certificate)
+* [Get the token for an HTTP-01 challenge](#get-the-token-for-an-http-01-challenge)
+* [Get the token for a TLS-ALPN-01 challenge](#get-the-token-for-a-tls-alpn-01-challenge)
 
 ## Create ACME account
 
@@ -41,8 +43,10 @@ This endpoint register an ACME account with the provided ACME CA.
 - `account` `(string: <required>)` - The name of the account to create.
 - `server_url` `(string: <required>)` - The ACME endpoint to use.
 - `terms_of_service_agreed` `(bool: false)` - Whether to accept the terms of service of the ACME CA.
-- `provider` `(string: <required>)` - Which DNS provider to use to resolve the DNS challenge.
 - `contact` `(string: <required>)` - The contact email address for the account.
+- `provider` `(string: <optional>)` - Which DNS provider to use to resolve the DNS challenge. Setting this parameter will activate the DNS-01 challenge.
+- `enable_http_01` `(bool: false)` - Whether to activate the HTTP-01 challenge.
+- `enable_tls_alpn_01` `(bool: false)` - Whether to activate the TLS-ALPN-01 challenge.
 
 ## Read ACME account
 
@@ -109,3 +113,21 @@ on the request and the role definition.
 - `role` `(string: <required>)` - The role to use to create the certificate.
 - `common_name` `(string: <required>)` - The Common Name to request for the certificate.
 - `alternative_names` `(list: [])` - A list of Subject Alternative Names to request for the certificate.
+
+## Get the token for an HTTP-01 challenge
+
+This endpoint returns the information needed to solve the HTTP-01 challenge.
+This is needed by the Vault ACME sidecar when this challenge is activated.
+
+| Method | Path                                  |
+| :----- | :------------------------------------ |
+| `GET`  | `/acme/challenges/http-01/:path`      |
+
+## Get the token for a TLS-ALPN-01 challenge
+
+This endpoint returns the information needed to solve the TLS-ALPN-01 challenge.
+This is needed by the Vault ACME sidecar when this challenge is activated.
+
+| Method | Path                                  |
+| :----- | :------------------------------------ |
+| `GET`  | `/acme/challenges/tls-alpn-01/:path`  |

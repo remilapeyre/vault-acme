@@ -12,38 +12,40 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-type user struct {
+type account struct {
 	Email                string
 	Registration         *registration.Resource
 	Key                  *ecdsa.PrivateKey
 	ServerURL            string
 	Provider             string
+	EnableHTTP01         bool
+	EnableTLSALPN01      bool
 	TermsOfServiceAgreed bool
 }
 
 // GetEmail returns the Email of the user
-func (u *user) GetEmail() string {
-	return u.Email
+func (a *account) GetEmail() string {
+	return a.Email
 }
 
 // GetRegistration returns the Email of the user
-func (u *user) GetRegistration() *registration.Resource {
-	return u.Registration
+func (a *account) GetRegistration() *registration.Resource {
+	return a.Registration
 }
 
 // GetPrivateKey returns the private key of the user
-func (u *user) GetPrivateKey() crypto.PrivateKey {
-	return u.Key
+func (a *account) GetPrivateKey() crypto.PrivateKey {
+	return a.Key
 }
 
-func (u *user) getClient() (*lego.Client, error) {
-	config := lego.NewConfig(u)
-	config.CADirURL = u.ServerURL
+func (a *account) getClient() (*lego.Client, error) {
+	config := lego.NewConfig(a)
+	config.CADirURL = a.ServerURL
 
 	return lego.NewClient(config)
 }
 
-func getUser(ctx context.Context, storage logical.Storage, path string) (*user, error) {
+func getAccount(ctx context.Context, storage logical.Storage, path string) (*account, error) {
 	storageEntry, err := storage.Get(ctx, path)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,7 @@ func getUser(ctx context.Context, storage logical.Storage, path string) (*user, 
 		return nil, err
 	}
 
-	return &user{
+	return &account{
 		Email: d["contact"].(string),
 		Key:   privateKey,
 		Registration: &registration.Resource{
@@ -71,11 +73,13 @@ func getUser(ctx context.Context, storage logical.Storage, path string) (*user, 
 		ServerURL:            d["server_url"].(string),
 		Provider:             d["provider"].(string),
 		TermsOfServiceAgreed: d["terms_of_service_agreed"].(bool),
+		EnableHTTP01:         d["enable_http_01"].(bool),
+		EnableTLSALPN01:      d["enable_tls_alpn_01"].(bool),
 	}, nil
 }
 
-func (u *user) save(ctx context.Context, storage logical.Storage, path string, serverURL string) error {
-	x509Encoded, err := x509.MarshalECPrivateKey(u.Key)
+func (a *account) save(ctx context.Context, storage logical.Storage, path string, serverURL string) error {
+	x509Encoded, err := x509.MarshalECPrivateKey(a.Key)
 	if err != nil {
 		return err
 	}
@@ -83,11 +87,13 @@ func (u *user) save(ctx context.Context, storage logical.Storage, path string, s
 
 	storageEntry, err := logical.StorageEntryJSON(path, map[string]interface{}{
 		"server_url":              serverURL,
-		"registration_uri":        u.Registration.URI,
-		"contact":                 u.GetEmail(),
-		"terms_of_service_agreed": u.TermsOfServiceAgreed,
+		"registration_uri":        a.Registration.URI,
+		"contact":                 a.GetEmail(),
+		"terms_of_service_agreed": a.TermsOfServiceAgreed,
 		"private_key":             string(pemEncoded),
-		"provider":                u.Provider,
+		"provider":                a.Provider,
+		"enable_http_01":          a.EnableHTTP01,
+		"enable_tls_alpn_01":      a.EnableTLSALPN01,
 	})
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/certificate"
+	"github.com/go-acme/lego/v3/lego"
 	"github.com/go-acme/lego/v3/providers/dns"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -57,11 +58,11 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	}
 
 	path = "accounts/" + r.Account
-	u, err := getUser(ctx, req.Storage, path)
+	a, err := getAccount(ctx, req.Storage, path)
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
+	if a == nil {
 		return logical.ErrorResponse("This account does not exists"), nil
 	}
 
@@ -125,15 +126,9 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		}
 	}
 
-	client, err := u.getClient()
+	client, err := a.getClient()
 
-	provider, err := dns.NewDNSChallengeProviderByName(u.Provider)
-	if err != nil {
-		return nil, err
-	}
-	if err = client.Challenge.SetDNS01Provider(provider); err != nil {
-		return nil, err
-	}
+	b.setupChallengeProviders(ctx, client, a, req)
 
 	request := certificate.ObtainRequest{
 		Domains: names,
@@ -144,7 +139,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	cert, err := client.Certificate.Obtain(request)
 	b.Logger().Debug("Got response from CA", "err", err)
 	if err != nil {
-		return logical.ErrorResponse("Failed to validate certificate signing request."), nil
+		return logical.ErrorResponse("Failed to validate certificate signing request."), err
 	}
 
 	// Use the helper to create the secret
@@ -180,6 +175,40 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	}
 
 	return s, nil
+}
+
+func (b *backend) setupChallengeProviders(ctx context.Context, client *lego.Client, a *account, req *logical.Request) error {
+	// DNS-01
+	if a.Provider != "" {
+		provider, err := dns.NewDNSChallengeProviderByName(a.Provider)
+		if err != nil {
+			return err
+		}
+		err = client.Challenge.SetDNS01Provider(provider)
+		if err != nil {
+			return err
+		}
+	}
+
+	// HTTP-01
+	if a.EnableHTTP01 {
+		provider := newVaultHTTP01Provider(ctx, b.Logger(), req)
+		err := client.Challenge.SetHTTP01Provider(provider)
+		if err != nil {
+			return err
+		}
+	}
+
+	// TLS-ALPN-01
+	if a.EnableTLSALPN01 {
+		provider := newVaultTLSALPN01Provider(ctx, b.Logger(), req)
+		err := client.Challenge.SetTLSALPN01Provider(provider)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func getCacheKey(r *role, data *framework.FieldData) (string, error) {

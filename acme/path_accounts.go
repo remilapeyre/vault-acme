@@ -13,76 +13,7 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-// This list comes from https://github.com/go-acme/lego/blob/master/providers/dns/dns_providers.go#L71
-// and should be updated when upgrading lego
-// Some must not be added here like 'exec' or 'rfc2136'
-var providers = []string{
-	"acme-dns",
-	"alidns",
-	"azure",
-	"auroradns",
-	"bindman",
-	"bluecat",
-	"cloudflare",
-	"cloudns",
-	"cloudxns",
-	"conoha",
-	"designate",
-	"digitalocean",
-	"dnsimple",
-	"dnsmadeeasy",
-	"dnspod",
-	"dode",
-	"dreamhost",
-	"duckdns",
-	"dyn",
-	"fastdns",
-	"easydns",
-	"exoscale",
-	"gandi",
-	"gandiv5",
-	"glesys",
-	"gcloud",
-	"godaddy",
-	"hostingde",
-	"httpreq",
-	"iij",
-	"inwx",
-	"joker",
-	"lightsail",
-	"linode",
-	"linodev4",
-	"liquidweb",
-	"manual",
-	"mydnsjp",
-	"namecheap",
-	"namedotcom",
-	"namesilo",
-	"netcup",
-	"nifcloud",
-	"ns1",
-	"oraclecloud",
-	"otc",
-	"ovh",
-	"pdns",
-	"rackspace",
-	"route53",
-	"sakuracloud",
-	"stackpath",
-	"selectel",
-	"transip",
-	"vegadns",
-	"versio",
-	"vultr",
-	"vscale",
-	"zoneee",
-}
-
 func pathAccounts(b *backend) *framework.Path {
-	allowedProviders := make([]interface{}, len(providers))
-	for i, p := range providers {
-		allowedProviders[i] = p
-	}
 	return &framework.Path{
 		Pattern: "accounts/" + framework.GenericNameRegex("account"),
 		Fields: map[string]*framework.FieldSchema{
@@ -102,9 +33,13 @@ func pathAccounts(b *backend) *framework.Path {
 			// TODO(remi): We should have a list of those so we can request certs
 			// for domains registred to different providers
 			"provider": &framework.FieldSchema{
-				Type:          framework.TypeString,
-				Required:      true,
-				AllowedValues: allowedProviders,
+				Type: framework.TypeString,
+			},
+			"enable_http_01": &framework.FieldSchema{
+				Type: framework.TypeBool,
+			},
+			"enable_tls_alpn_01": &framework.FieldSchema{
+				Type: framework.TypeBool,
 			},
 			"contact": &framework.FieldSchema{
 				Type:     framework.TypeString,
@@ -131,17 +66,8 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	contact := data.Get("contact").(string)
 	termsOfServiceAgreed := data.Get("terms_of_service_agreed").(bool)
 	provider := data.Get("provider").(string)
-
-	var found bool
-	for _, p := range providers {
-		if provider == p {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return logical.ErrorResponse("'%s' is not a supported provider.", provider), nil
-	}
+	enableHTTP01 := data.Get("enable_http_01").(bool)
+	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
 
 	b.Logger().Info("Generating key pair for new account")
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -149,11 +75,13 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 		return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
 	}
 
-	user := user{
+	user := account{
 		Email:                contact,
 		Key:                  privateKey,
 		ServerURL:            serverURL,
 		Provider:             provider,
+		EnableHTTP01:         enableHTTP01,
+		EnableTLSALPN01:      enableTLSALPN01,
 		TermsOfServiceAgreed: termsOfServiceAgreed,
 	}
 
@@ -184,41 +112,43 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 }
 
 func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	u, err := getUser(ctx, req.Storage, req.Path)
+	a, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
+	if a == nil {
 		return logical.ErrorResponse("This account does not exists"), nil
 	}
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"server_url":              u.ServerURL,
-			"registration_uri":        u.Registration.URI,
-			"contact":                 u.GetEmail(),
-			"terms_of_service_agreed": u.TermsOfServiceAgreed,
-			"provider":                u.Provider,
+			"server_url":              a.ServerURL,
+			"registration_uri":        a.Registration.URI,
+			"contact":                 a.GetEmail(),
+			"terms_of_service_agreed": a.TermsOfServiceAgreed,
+			"provider":                a.Provider,
+			"enable_http_01":          a.EnableHTTP01,
+			"enable_tls_alpn_01":      a.EnableTLSALPN01,
 		},
 	}, nil
 }
 
 func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	u, err := getUser(ctx, req.Storage, req.Path)
+	a, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
+	if a == nil {
 		return logical.ErrorResponse("This account does not exists"), nil
 	}
 
-	client, err := u.getClient()
+	client, err := a.getClient()
 	if err != nil {
 		return nil, errwrap.Wrapf("Failed to instanciate new client: {{err}}", err)
 	}
 
 	if err = client.Registration.DeleteRegistration(); err != nil {
-		b.Logger().Info("foo", "private key", reflect.TypeOf(u.GetPrivateKey()))
+		b.Logger().Info("foo", "private key", reflect.TypeOf(a.GetPrivateKey()))
 		return nil, errwrap.Wrapf("Failed to deactivate registration: {{err}}", err)
 	}
 

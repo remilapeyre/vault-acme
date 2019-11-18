@@ -9,11 +9,12 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
-	"strings"
 
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/remilapeyre/acme/acme/sidecar"
 )
 
 var serverURL string
@@ -105,7 +106,7 @@ func TestValidateNames(t *testing.T) {
 
 }
 
-func TestBackend(t *testing.T) {
+func getTestConfig(t *testing.T) (*logical.BackendConfig, logical.Backend) {
 	serverURL = getEnv("TEST_SERVER_URL", "https://localhost:14000/dir")
 
 	config := logical.TestBackendConfig()
@@ -115,55 +116,188 @@ func TestBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("Try to create accounts")
-	checkCreatingAccounts(t, b, serverURL, config.StorageView)
-
-	t.Log("Try to read accounts")
-	checkReadingAccount(t, b, config.StorageView)
-
-	t.Log("Try to create roles")
-	checkCreatingRoles(t, b, config.StorageView)
-
-	t.Log("Try to request certificates")
-	firstCert, secondCert := checkCreatingCerts(t, b, config.StorageView)
-
-	// Try to run an HTTPS server with the certificate we got and query it
-	checkCertificate(t, firstCert)
-
-	t.Log("Try to renew the lease")
-	checkRenewingCert(t, b, config.StorageView, firstCert.Secret)
-
-	t.Log("Try to revoke the lease")
-	checkRevokeCert(t, b, config.StorageView, firstCert, secondCert)
-
-	t.Log("Try to delete the role")
-	checkDeletingRole(t, b, config.StorageView)
-
-	t.Log("Try to delete the account")
-	checkDeletingAccounts(t, b, config.StorageView)
+	return config, b
 }
 
-func checkCreatingAccounts(t *testing.T, b logical.Backend, serverURL string, storage logical.Storage) {
-	accountData := map[string]interface{}{
-		"server_url":              serverURL,
-		"contact":                 "remi@lenstra.fr",
-		"terms_of_service_agreed": true,
-		"provider":                "doesnotexists",
-	}
-
-	accountReq := &logical.Request{
+func createAccount(t *testing.T, b logical.Backend, storage logical.Storage) {
+	req := &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      "accounts/lenstra",
 		Storage:   storage,
-		Data:      accountData,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"provider":                "cloudflare",
+		},
+	}
+	makeRequest(t, b, req, "")
+}
+
+func createRole(t *testing.T, b logical.Backend, storage logical.Storage) {
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "roles/lenstra.fr",
+		Storage:   storage,
+		Data: map[string]interface{}{
+			"account":          "lenstra",
+			"allow_subdomains": true,
+			"allowed_domains":  []string{"lenstra.fr"},
+		},
+	}
+	makeRequest(t, b, req, "")
+}
+
+func createXipRole(t *testing.T, b logical.Backend, storage logical.Storage) {
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "roles/xip.io",
+		Storage:   storage,
+		Data: map[string]interface{}{
+			"account":          "lenstra",
+			"allow_subdomains": true,
+			"allowed_domains":  []string{"xip.io"},
+		},
+	}
+	makeRequest(t, b, req, "")
+}
+
+func TestNoChallenge(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+		},
+	}
+	makeRequest(t, b, req, "")
+
+	createRole(t, b, config.StorageView)
+
+	req = &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "certs/lenstra.fr",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"common_name": "sentry.lenstra.fr",
+		},
 	}
 
-	makeRequest(t, b, accountReq, "'doesnotexists' is not a supported provider.")
-	accountReq.Data["provider"] = "cloudflare"
-	makeRequest(t, b, accountReq, "")
+	resp, err := b.HandleRequest(context.Background(), req)
+	if err == nil {
+		t.Fatalf("Did not get error")
+	}
+	if !strings.Contains(err.Error(), "acme: could not determine solvers") {
+		t.Fatalf("Error did not contain 'acme: could not determine solvers'")
+	}
+	if resp == nil {
+		t.Fatalf("Did not get response")
+	}
+	if !resp.IsError() {
+		t.Fatalf("Did not get error")
+	}
+	expected := "Failed to validate certificate signing request."
+	if resp.Error().Error() != expected {
+		t.Fatalf("Was expecting '%s' but got '%s'", expected, resp.Error().Error())
+	}
+}
 
-	accountReq.Operation = logical.ReadOperation
-	resp := makeRequest(t, b, accountReq, "")
+func TestHTTP01Challenge(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"enable_http_01":          true,
+		},
+	}
+	makeRequest(t, b, req, "")
+
+	createXipRole(t, b, config.StorageView)
+
+	mockClient := sidecar.NewMockClient(b, config.StorageView)
+	provider := sidecar.NewHTTP01Provider(mockClient, b.Logger())
+
+	// pebble uses the 5002 port
+	go provider.Listen(":5002")
+
+	req = &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "certs/xip.io",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"common_name": "127.0.0.1.xip.io",
+		},
+	}
+	makeRequest(t, b, req, "")
+}
+
+func TestTLSALPN01Challenge(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"enable_tls_alpn_01":      true,
+		},
+	}
+	makeRequest(t, b, req, "")
+
+	createXipRole(t, b, config.StorageView)
+
+	mockClient := sidecar.NewMockClient(b, config.StorageView)
+	provider := sidecar.NewTLSALPN01Provider(mockClient, b.Logger())
+
+	// pebble uses the 5001 port
+	go provider.Listen(":5001")
+
+	req = &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "certs/xip.io",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"common_name": "127.0.0.1.xip.io",
+		},
+	}
+	makeRequest(t, b, req, "")
+}
+
+func TestAccounts(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	// Create account
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"provider":                "cloudflare",
+		},
+	}
+	resp := makeRequest(t, b, req, "")
+
+	account := map[string]interface{}{}
+	for k, v := range resp.Data {
+		account[k] = v
+	}
 	delete(resp.Data, "registration_uri")
 
 	expected := map[string]interface{}{
@@ -171,46 +305,49 @@ func checkCreatingAccounts(t *testing.T, b logical.Backend, serverURL string, st
 		"server_url":              serverURL,
 		"terms_of_service_agreed": true,
 		"provider":                "cloudflare",
+		"enable_http_01":          false,
+		"enable_tls_alpn_01":      false,
 	}
 	assertEqual(t, expected, resp.Data)
-}
 
-func checkReadingAccount(t *testing.T, b logical.Backend, storage logical.Storage) {
-	accountReq := &logical.Request{
+	// Read account
+	req = &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "accounts/lenstra",
-		Storage:   storage,
+		Storage:   config.StorageView,
 	}
-	resp := makeRequest(t, b, accountReq, "")
-	delete(resp.Data, "registration_uri")
-	assertEqual(
-		t,
-		map[string]interface{}{
-			"contact":                 "remi@lenstra.fr",
-			"provider":                "cloudflare",
-			"server_url":              serverURL,
-			"terms_of_service_agreed": true,
-		},
-		resp.Data,
-	)
-}
+	resp = makeRequest(t, b, req, "")
+	assertEqual(t, account, resp.Data)
 
-func checkDeletingAccounts(t *testing.T, b logical.Backend, storage logical.Storage) {
-	accountReq := &logical.Request{
+	// Read unknown account
+	req = &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "accounts/foobar",
+		Storage:   config.StorageView,
+	}
+	resp = makeRequest(t, b, req, "This account does not exists")
+
+	// Delete account
+	req = &logical.Request{
 		Operation: logical.DeleteOperation,
 		Path:      "accounts/lenstra",
-		Storage:   storage,
+		Storage:   config.StorageView,
 	}
-	makeRequest(t, b, accountReq, "foo")
+	makeRequest(t, b, req, "")
 
-	accountReq.Operation = logical.ReadOperation
-	makeRequest(t, b, accountReq, "This account does not exists")
-
-	accountReq.Path = "accounts/bar"
-	makeRequest(t, b, accountReq, "This account does not exists")
+	req = &logical.Request{
+		Operation: logical.DeleteOperation,
+		Path:      "accounts/foobar",
+		Storage:   config.StorageView,
+	}
+	makeRequest(t, b, req, "This account does not exists")
 }
 
-func checkCreatingRoles(t *testing.T, b logical.Backend, storage logical.Storage) {
+func TestRoles(t *testing.T) {
+	config, b := getTestConfig(t)
+	createAccount(t, b, config.StorageView)
+
+	// Test creating roles
 	testCases := []testCase{
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra"},
@@ -232,22 +369,82 @@ func checkCreatingRoles(t *testing.T, b logical.Backend, storage logical.Storage
 			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "disable_cache": true},
 			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 70, "disable_cache": true},
 		},
-		// This one must be the last as the rest of the tests are using it
-		{
-			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 70, "disable_cache": false},
-		},
 	}
 	for _, tcase := range testCases {
-		roleReq := &logical.Request{
+		req := &logical.Request{
 			Operation: logical.CreateOperation,
 			Path:      "roles/lenstra.fr",
-			Storage:   storage,
+			Storage:   config.StorageView,
 			Data:      tcase.RequestData,
 		}
-		resp := makeRequest(t, b, roleReq, "")
+		resp := makeRequest(t, b, req, "")
 		assertEqual(t, tcase.ExpectedResponse, resp.Data)
 	}
+
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "roles/lenstra.fr",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"account":          "lenstra",
+			"allow_subdomains": true,
+			"allowed_domains":  []string{"lenstra.fr"},
+		},
+	}
+	makeRequest(t, b, req, "")
+
+	// Read role
+	req = &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "roles/lenstra.fr",
+		Storage:   config.StorageView,
+	}
+	resp := makeRequest(t, b, req, "")
+	assertEqual(
+		t,
+		resp.Data,
+		map[string]interface{}{
+			"account":            "lenstra",
+			"allow_bare_domains": false,
+			"allow_subdomains":   true,
+			"allowed_domains":    []string{"lenstra.fr"},
+			"cache_for_ratio":    70,
+			"disable_cache":      false,
+		},
+	)
+
+	// Delete role
+	req = &logical.Request{
+		Operation: logical.DeleteOperation,
+		Path:      "roles/lenstra.fr",
+		Storage:   config.StorageView,
+	}
+	makeRequest(t, b, req, "")
+
+	req = &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "roles/lenstra.fr",
+		Storage:   config.StorageView,
+	}
+	makeRequest(t, b, req, "This role does not exists")
+}
+
+func TestCerts(t *testing.T) {
+	config, b := getTestConfig(t)
+	createAccount(t, b, config.StorageView)
+	createRole(t, b, config.StorageView)
+
+	t.Log("Try to request certificates")
+	firstCert, secondCert := checkCreatingCerts(t, b, config.StorageView)
+
+	// Try to run an HTTPS server with the certificate we got and query it
+	checkCertificate(t, firstCert)
+
+	t.Log("Try to renew the lease")
+	checkRenewingCert(t, b, config.StorageView, firstCert.Secret)
+
+	t.Log("Try to revoke the lease")
+	checkRevokeCert(t, b, config.StorageView, firstCert, secondCert)
 }
 
 func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage) (*logical.Response, *logical.Response) {
@@ -265,7 +462,7 @@ func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage
 
 	// Try with alternate names
 	certReq.Data = map[string]interface{}{
-		"common_name":     "sentry.lenstra.fr",
+		"common_name":       "sentry.lenstra.fr",
 		"alternative_names": "grafana.lenstra.fr",
 	}
 	first := makeRequest(t, b, certReq, "")
@@ -306,14 +503,14 @@ func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, f
 	makeRequest(t, b, certReq, "")
 
 	// Check the cert status
-	u, err := getUser(context.Background(), storage, "accounts/lenstra")
+	a, err := getAccount(context.Background(), storage, "accounts/lenstra")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u == nil {
-		t.Fatal("User should have been found")
+	if a == nil {
+		t.Fatal("Account should have been found")
 	}
-	client, err := u.getClient()
+	client, err := a.getClient()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,15 +523,6 @@ func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, f
 	if !strings.Contains(err.Error(), "Certificate has already been revoked.") {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-}
-
-func checkDeletingRole(t *testing.T, b logical.Backend, storage logical.Storage) {
-	roleReq := &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "roles/lenstra.fr",
-		Storage:   storage,
-	}
-	makeRequest(t, b, roleReq, "")
 }
 
 func checkCertificate(t *testing.T, resp *logical.Response) {
@@ -421,10 +609,13 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 func makeRequest(t *testing.T, b logical.Backend, req *logical.Request, expectedError string) *logical.Response {
 	resp, err := b.HandleRequest(context.Background(), req)
 	if err != nil {
-		t.Fatalf("failed to make request: resp:%#v err:%s", resp, err)
+		t.Fatalf("failed to make request:\nreq:%#v\nresp:%#v\nerr:%s", req, resp, err)
 	}
 	if resp != nil && resp.IsError() && expectedError == "" {
 		t.Fatalf("Was not expecting error but got '%s'", resp.Error().Error())
+	}
+	if expectedError != "" && !resp.IsError() {
+		t.Fatalf("Was expecting error '%s' but did not get one", expectedError)
 	}
 	if resp != nil && resp.IsError() {
 		err = resp.Error()

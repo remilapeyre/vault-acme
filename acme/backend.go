@@ -25,6 +25,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 			pathAccounts(&b),
 			pathRoles(&b),
 			pathCerts(&b),
+			pathChallenges(&b),
 		},
 	}
 

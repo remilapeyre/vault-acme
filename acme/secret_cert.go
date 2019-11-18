@@ -85,14 +85,14 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 	// If the last user asked for the lease to be terminated we revoke the cert
 	if users == 0 {
 		accountPath := req.Secret.InternalData["account"].(string)
-		u, err := getUser(ctx, req.Storage, accountPath)
+		a, err := getAccount(ctx, req.Storage, accountPath)
 		if err != nil {
 			return nil, err
 		}
-		if u == nil {
+		if a == nil {
 			return nil, fmt.Errorf("Error while revoking certificate: user not found")
 		}
-		client, err := u.getClient()
+		client, err := a.getClient()
 		err = client.Certificate.Revoke(cert)
 		if err != nil {
 			return nil, fmt.Errorf("failed to revoke cert: %v", err)

@@ -16,6 +16,8 @@ With this secrets engine, services can get certificates that can be presented to
 end users and that clients will accept. Currently only Let's Encrypt implement
 the ACME standard.
 
+Vault ACME can natively solve the DNS-01 challenges but need a [sidecar](/docs/secrets/acme/sidecar.html) for the HTTP-01 and TLS-ALPN-01 challenges.
+
 -> **NOTE:** The directory URLs in all examples in this provider reference Let's
   Encrypt's staging server endpoint. For production use, change the directory
   URLs to the production endpoints, which can be found [here](https://letsencrypt.org/docs/acme-protocol-updates/).
