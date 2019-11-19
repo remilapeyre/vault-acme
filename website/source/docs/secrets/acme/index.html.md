@@ -16,11 +16,35 @@ With this secrets engine, services can get certificates that can be presented to
 end users and that clients will accept. Currently only Let's Encrypt implement
 the ACME standard.
 
-Vault ACME can natively solve the DNS-01 challenges but need a [sidecar](/docs/secrets/acme/sidecar.html) for the HTTP-01 and TLS-ALPN-01 challenges.
-
 -> **NOTE:** The directory URLs in all examples in this provider reference Let's
   Encrypt's staging server endpoint. For production use, change the directory
   URLs to the production endpoints, which can be found [here](https://letsencrypt.org/docs/acme-protocol-updates/).
+
+## Supported challenges
+
+When requesting a certificate to an ACME provider, the provider tries to validate
+that the user controls the domains names using challenges.
+
+The ACME secret engine supports the following challenges:
+
+- **DNS-01 challenge:** the DNS-01 challenge confirms that you control the DNS
+  for the domain name. This challenge is natively supported by the ACME secret
+  engine which will automatically create the appropriate records. The supported
+  DNS providers and their configuration is documented in the
+  [DNS providers](/docs/secrets/acme/dns-providers.html) documentation.
+
+- **HTTP-01 challenge:** the HTTP-01 challenge confirms that you control the
+  domain Vault is requesting a certificate for by putting a file at
+  `http://<YOUR_DOMAIN>/.well-known/acme-challenge/<TOKEN>`. The ACME secret
+  engine supports this challenge but need the
+  [Vault ACME sidecar](/docs/secrets/acme/sidecar.html) to solve it. Once the
+  sidecar is running, requesting certificates work like with the DNS-01 challenge.
+
+- **TLS-ALPN-01 challenge:** the TLS-ALPN-01 confirms that you control the domain
+  Vault is requesting a certificate for by make a TLS connection on the 443 port
+  of the domain. This challenge is also supported by the ACME secret backend
+  using the [Vault ACME sidecar](/docs/secrets/acme/sidecar.html).
+
 
 ## Setup
 
