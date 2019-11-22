@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/remilapeyre/acme/acme/sidecar"
+	"github.com/remilapeyre/vault-acme/acme/sidecar"
 )
 
 var serverURL string

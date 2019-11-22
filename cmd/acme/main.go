@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/remilapeyre/acme/acme"
+	"github.com/remilapeyre/vault-acme/acme"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"

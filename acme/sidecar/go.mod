@@ -1,3 +1,3 @@
-module github.com/remilapeyre/acme/acme/sidecar
+module github.com/remilapeyre/vault-acme/acme/sidecar
 
 go 1.13

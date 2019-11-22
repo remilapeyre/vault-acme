@@ -6,7 +6,7 @@ import (
 
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
-	"github.com/remilapeyre/acme/acme/sidecar"
+	"github.com/remilapeyre/vault-acme/acme/sidecar"
 )
 
 func main() {
