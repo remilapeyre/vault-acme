@@ -1,0 +1,10 @@
+FROM golang:1.12-alpine
+#FROM vault:latest
+#COPY --from=0 /usr/local/go /usr/local/go
+#ENV PATH="/go/bin:/usr/local/go/bin:${PATH}" GOPATH="/go"
+RUN apk add --no-cache git make
+RUN go get github.com/mitchellh/gox
+WORKDIR /go/src/github.com/remilapeyre/vault-acme
+COPY . .
+ENV GO111MODULE=on GOX_LINUX_AMD64_LDFLAGS='-w -extldflags "-static"' GOX_LINUX_386_LDFLAGS='-w -extldflags "-static"' GOX_LINUX_ARM_LDFLAGS='-w -extldflags "-static"'
+RUN go get -d -v ./... && CGO_ENABLED=0 make all
