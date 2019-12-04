@@ -1,4 +1,4 @@
-module github.com/remilapeyre/acme
+module github.com/remilapeyre/vault-acme
 
 go 1.13
 
