@@ -226,7 +226,7 @@ func getCacheKey(r *role, data *framework.FieldData) (string, error) {
 		return "", fmt.Errorf("failed to marshall data: %v", err)
 	}
 
-	return string(rolePath) + string(dataPath), nil
+	return cachePrefix + string(rolePath) + string(dataPath), nil
 }
 
 func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Resource) (*logical.Response, error) {

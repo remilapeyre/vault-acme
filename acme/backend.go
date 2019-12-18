@@ -26,6 +26,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 			pathRoles(&b),
 			pathCerts(&b),
 			pathChallenges(&b),
+			pathCache(&b),
 		},
 	}
 
@@ -42,4 +43,10 @@ func (b *backend) pathExistenceCheck(ctx context.Context, req *logical.Request, 
 	}
 
 	return out != nil, nil
+}
+
+func (b *backend) Cache() cache {
+	return cache{
+		b: b,
+	}
 }

@@ -28,6 +28,8 @@ update your API calls accordingly.
 * [Generate Certificate](#generate-certificate)
 * [Get the token for an HTTP-01 challenge](#get-the-token-for-an-http-01-challenge)
 * [Get the token for a TLS-ALPN-01 challenge](#get-the-token-for-a-tls-alpn-01-challenge)
+* [Read the cache state](#read-the-cache-state)
+* [Clear the cache](#clear-the-cache)
 
 ## Create ACME account
 
@@ -131,3 +133,19 @@ This is needed by the Vault ACME sidecar when this challenge is activated.
 | Method | Path                                  |
 | :----- | :------------------------------------ |
 | `GET`  | `/acme/challenges/tls-alpn-01/:path`  |
+
+## Read the cache state
+
+This endpoint returns information regarding the cache status.
+
+| Method | Path               |
+| :----- | :----------------- |
+| `GET`  | `/acme/cache`      |
+
+## Clear the cache
+
+This endpoints lets an operator clear the cache.
+
+| Method    | Path               |
+| :-------- | :----------------- |
+| `DELETE`  | `/acme/cache`      |
