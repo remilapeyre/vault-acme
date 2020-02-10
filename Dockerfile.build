@@ -1,4 +1,5 @@
-FROM golang:1.12-alpine
+# Alpine version: https://github.com/hashicorp/docker-vault/blob/master/0.X/Dockerfile#L1
+FROM golang:1.12-alpine3.10
 #FROM vault:latest
 #COPY --from=0 /usr/local/go /usr/local/go
 #ENV PATH="/go/bin:/usr/local/go/bin:${PATH}" GOPATH="/go"
