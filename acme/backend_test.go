@@ -128,7 +128,7 @@ func createAccount(t *testing.T, b logical.Backend, storage logical.Storage) {
 			"server_url":              serverURL,
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
-			"provider":                "cloudflare",
+			"provider":                "exec",
 		},
 	}
 	makeRequest(t, b, req, "")
@@ -289,7 +289,7 @@ func TestAccounts(t *testing.T) {
 			"server_url":              serverURL,
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
-			"provider":                "cloudflare",
+			"provider":                "exec",
 		},
 	}
 	resp := makeRequest(t, b, req, "")
@@ -304,7 +304,7 @@ func TestAccounts(t *testing.T) {
 		"contact":                 "remi@lenstra.fr",
 		"server_url":              serverURL,
 		"terms_of_service_agreed": true,
-		"provider":                "cloudflare",
+		"provider":                "exec",
 		"enable_http_01":          false,
 		"enable_tls_alpn_01":      false,
 	}

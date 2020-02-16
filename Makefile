@@ -1,4 +1,3 @@
-vault := VAULT_ADDR=http://localhost:8200 vault
 GOX_OS := linux darwin windows freebsd openbsd solaris
 TEST_ARGS :=
 
@@ -16,7 +15,7 @@ clean:
 
 .PHONY: test
 test:
-	go test $(TEST_ARGS) ./acme
+	@./test/run_tests.sh $(TEST_ARGS)
 
 .PHONY: website
 website:
