@@ -15,27 +15,16 @@ The documentation is available at `website/source/docs/secrets/acme/index.html.m
 
 ## How to use this plugin
 
-**This plugin currently requires `mlock` to be disabled to run in Docker.**
+Using this plugin in Docker requires to manually set the `mlock` file capability
+to both Vault and the acme plugin:
 
-Enabling this plugin with `mlock` enabled currently fail with this error message:
-
-```text
-#> vault secrets enable acme
-Error enabling: Error making API request.
-
-URL: POST http://139.162.27.172:22663/v1/sys/mounts/acme
-Code: 400. Errors:
-
-* Unrecognized remote plugin message:
-
-This usually means that the plugin is either invalid or simply
-needs to be recompiled to support the latest protocol.
+```sh
+$ sudo setcap cap_ipc_lock=+ep $(readlink -f $(which vault))
+$ sudo setcap cap_ipc_lock=+ep /vault/plugins/acme-plugin
 ```
 
-To disable `mlock`, add `disable_mlock = true` in [Vault's configuration](https://www.vaultproject.io/docs/configuration/#disable_mlock).
-
 After setting [`plugin_directory`](https://www.vaultproject.io/docs/configuration/#plugin_directory)
-and setting the correct shasum in Vault (`vault write sys/plugins/catalog/secret/acme sha_256=1b722cd0300bee3c19d72786a655d9d214b275e2c1ad1f42fc4ebd2af7c2f9d0 command=acme-plugin`)
+and setting the correct shasum in Vault (`vault write sys/plugins/catalog/secret/acme sha_256=$(sha256sum acme-plugin) command=acme-plugin`)
 you can mount the plugin like any other: `vault secrets enable -path acme -plugin-name acme plugin`.
 
 
