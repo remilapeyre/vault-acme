@@ -11,7 +11,7 @@ Discussion: https://github.com/hashicorp/vault/issues/4950
 
 ## Documentation
 
-The documentation is available at `website/source/docs/secrets/acme/index.html.md`.
+The documentation is available at [`website/source/docs/secrets/acme/index.html.md`](https://github.com/remilapeyre/vault-acme/blob/master/website/source/docs/secrets/acme/index.html.md).
 
 ## How to use this plugin
 
