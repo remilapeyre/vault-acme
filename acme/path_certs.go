@@ -100,7 +100,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 			if remaining > float64(r.CacheForRatio)*certTTL/100 {
 				b.Logger().Debug("Cached cert can be used")
 
-				internalData["cert"] = []byte(internalData["cert"].(string))
+				internalData["cert"] = internalData["cert"].(string)
 				s := b.Secret(secretCertType).Response(data, internalData)
 				s.Secret.MaxTTL = notAfter.Sub(time.Now())
 
@@ -253,7 +253,7 @@ func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Reso
 		// this will be used when revoking the certificate
 		map[string]interface{}{
 			"account":   accountPath,
-			"cert":      cert.Certificate,
+			"cert":      string(cert.Certificate),
 			"url":       cert.CertStableURL,
 			"cache_key": cacheKey,
 		})

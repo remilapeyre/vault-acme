@@ -51,12 +51,12 @@ func (b *backend) certRenew(ctx context.Context, req *logical.Request, data *fra
 
 func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var users int64
-	cacheKey := req.Secret.InternalData["cache_key"]
+	cacheKey := req.Secret.InternalData["cache_key"].(string)
 
-	cert := req.Secret.InternalData["cert"].([]byte)
-	b.Logger().Debug("Trying to revoke cert", "url", req.Secret.InternalData["url"].(string), "cert", string(cert))
+	cert := req.Secret.InternalData["cert"].(string)
+	b.Logger().Debug("Trying to revoke cert", "url", req.Secret.InternalData["url"].(string), "cert", cert)
 
-	storageEntry, err := req.Storage.Get(ctx, cacheKey.(string))
+	storageEntry, err := req.Storage.Get(ctx, cacheKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch cache entry: %v", err)
 	}
@@ -72,13 +72,20 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 		b.Logger().Debug("Looking in the cache to determine whether to revoke the cert", "users", users)
 		users--
 		d["users"] = users
-		storageEntry, err := logical.StorageEntryJSON(cacheKey.(string), d)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cache entry: %v", err)
-		}
-		err = req.Storage.Put(ctx, storageEntry)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save cache entry: %v", err)
+		if users != 0 {
+			storageEntry, err := logical.StorageEntryJSON(cacheKey, d)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create cache entry: %v", err)
+			}
+			err = req.Storage.Put(ctx, storageEntry)
+			if err != nil {
+				return nil, fmt.Errorf("failed to save cache entry: %v", err)
+			}
+		} else {
+			err = req.Storage.Delete(ctx, cacheKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to remove cache entry: %v", err)
+			}
 		}
 	}
 
@@ -93,7 +100,7 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 			return nil, fmt.Errorf("Error while revoking certificate: user not found")
 		}
 		client, err := a.getClient()
-		err = client.Certificate.Revoke(cert)
+		err = client.Certificate.Revoke([]byte(cert))
 		if err != nil {
 			return nil, fmt.Errorf("failed to revoke cert: %v", err)
 		}
