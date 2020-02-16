@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"reflect"
 
 	"github.com/go-acme/lego/v3/registration"
 	"github.com/hashicorp/errwrap"
@@ -148,7 +147,6 @@ func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data 
 	}
 
 	if err = client.Registration.DeleteRegistration(); err != nil {
-		b.Logger().Info("foo", "private key", reflect.TypeOf(a.GetPrivateKey()))
 		return nil, errwrap.Wrapf("Failed to deactivate registration: {{err}}", err)
 	}
 
