@@ -18,10 +18,18 @@ jobs:
 
     - name: Get dependencies
       run: |
-        go get -v -t -d ./...
-        go get -u github.com/letsencrypt/pebble/...
+        GO111MODULE=off go get -u github.com/letsencrypt/pebble/...
 
-    - name: Run tests
+    - name: Run unit tests
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin
         make test
+
+    - name: Run acceptance tests
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+        curl -sLo vault.zip https://releases.hashicorp.com/vault/1.3.2/vault_1.3.2_linux_amd64.zip
+        unzip vault.zip
+        sudo mv vault /usr/local/bin/vault
+        make testacc

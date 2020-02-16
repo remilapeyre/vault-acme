@@ -3,6 +3,7 @@ TEST_ARGS :=
 
 .PHONY: build
 build:
+	@mkdir -p build
 	go build -o build ./...
 
 .PHONY: fmt
@@ -16,6 +17,10 @@ clean:
 .PHONY: test
 test:
 	@./test/run_tests.sh $(TEST_ARGS)
+
+.PHONY: testacc
+testacc: build
+	@./test/run_acceptance_tests.sh $(TEST_ARGS)
 
 .PHONY: website
 website:

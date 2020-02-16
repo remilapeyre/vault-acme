@@ -1,6 +1,7 @@
 build
 acme-plugin
 test/pebble*.log
+test/vault.log
 
 node_modules
 website/vendor
@@ -87,7 +88,6 @@ website/tmp
 Vagrantfile
 
 # Configs
-*.hcl
 !command/agent/config/test-fixtures/*.hcl
 !command/server/test-fixtures/*.hcl
 
