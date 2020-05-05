@@ -1,7 +1,6 @@
 build
 acme-plugin
-test/pebble*.log
-test/vault.log
+test/*.log
 
 node_modules
 website/vendor

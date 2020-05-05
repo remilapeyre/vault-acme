@@ -26,5 +26,5 @@ pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 ""  > test/pebble_challtes
 pebble -dnsserver 127.0.0.1:8053 > test/pebble.log 2>&1 &
 
 set -x
-go test "$@" ./acme
+go test "$@" ./acme | tee test/tests.log
 set +x
