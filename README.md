@@ -9,6 +9,10 @@ applications permission to modify DNS and using Vault's audit and policy systems
 
 Discussion: https://github.com/hashicorp/vault/issues/4950
 
+## Download Vault ACME
+
+Binary releases can be downloaded at https://github.com/remilapeyre/vault-acme/releases.
+
 ## Documentation
 
 The documentation is available at [`website/source/docs/secrets/acme/index.html.md`](https://github.com/remilapeyre/vault-acme/blob/master/website/source/docs/secrets/acme/index.html.md).
