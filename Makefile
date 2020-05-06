@@ -4,7 +4,7 @@ TEST_ARGS :=
 .PHONY: build
 build:
 	@mkdir -p build
-	go build -o build ./...
+	CGO_ENABLED=0 go build -o build ./...
 
 .PHONY: fmt
 fmt:
@@ -16,11 +16,11 @@ clean:
 
 .PHONY: test
 test:
-	@./test/run_tests.sh $(TEST_ARGS)
+	@CGO_ENABLED=0 ./test/run_tests.sh $(TEST_ARGS)
 
 .PHONY: testacc
 testacc: build
-	@./test/run_acceptance_tests.sh $(TEST_ARGS)
+	@CGO_ENABLED=0 ./test/run_acceptance_tests.sh $(TEST_ARGS)
 
 .PHONY: website
 website:
@@ -32,5 +32,5 @@ preview:
 
 .PHONY: all
 all:
-	gox -os='$(GOX_OS)' -arch='386 amd64 arm' -osarch='!darwin/arm !darwin/386' -output 'build/{{.OS}}_{{.Arch}}/acme-plugin' ./cmd/acme
-	gox -os='$(GOX_OS)' -arch='386 amd64 arm' -osarch='!darwin/arm !darwin/386' -output 'build/{{.OS}}_{{.Arch}}/sidecar' ./cmd/sidecar
+	CGO_ENABLED=0 gox -os='$(GOX_OS)' -arch='386 amd64 arm' -osarch='!darwin/arm !darwin/386' -output 'build/{{.OS}}_{{.Arch}}/acme-plugin' ./cmd/acme
+	CGO_ENABLED=0 gox -os='$(GOX_OS)' -arch='386 amd64 arm' -osarch='!darwin/arm !darwin/386' -output 'build/{{.OS}}_{{.Arch}}/sidecar' ./cmd/sidecar
