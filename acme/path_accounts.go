@@ -2,15 +2,22 @@ package acme
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
+	"fmt"
 
+	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/registration"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
+
+var keyTypes = []interface{}{
+	"EC256",
+	"EC384",
+	"RSA2048",
+	"RSA4096",
+	"RSA8192",
+}
 
 func pathAccounts(b *backend) *framework.Path {
 	return &framework.Path{
@@ -28,6 +35,11 @@ func pathAccounts(b *backend) *framework.Path {
 			"terms_of_service_agreed": &framework.FieldSchema{
 				Type:    framework.TypeBool,
 				Default: false,
+			},
+			"key_type": &framework.FieldSchema{
+				Type:          framework.TypeString,
+				Default:       "EC256",
+				AllowedValues: keyTypes,
 			},
 			// TODO(remi): We should have a list of those so we can request certs
 			// for domains registred to different providers
@@ -57,6 +69,23 @@ func pathAccounts(b *backend) *framework.Path {
 	}
 }
 
+func getKeyType(t string) (certcrypto.KeyType, error) {
+	switch t {
+	case "EC256":
+		return certcrypto.EC256, nil
+	case "EC384":
+		return certcrypto.EC384, nil
+	case "RSA2048":
+		return certcrypto.RSA2048, nil
+	case "RSA4096":
+		return certcrypto.RSA4096, nil
+	case "RSA8192":
+		return certcrypto.RSA8192, nil
+	default:
+		return certcrypto.KeyType(""), fmt.Errorf("%q is not a supported key type", t)
+	}
+}
+
 func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := data.Validate(); err != nil {
 		return nil, err
@@ -68,8 +97,13 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	enableHTTP01 := data.Get("enable_http_01").(bool)
 	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
 
+	keyType, err := getKeyType(data.Get("key_type").(string))
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
 	b.Logger().Info("Generating key pair for new account")
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := certcrypto.GeneratePrivateKey(keyType)
 	if err != nil {
 		return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
 	}
@@ -77,6 +111,7 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	user := account{
 		Email:                contact,
 		Key:                  privateKey,
+		KeyType:              data.Get("key_type").(string),
 		ServerURL:            serverURL,
 		Provider:             provider,
 		EnableHTTP01:         enableHTTP01,
@@ -125,6 +160,7 @@ func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *f
 			"registration_uri":        a.Registration.URI,
 			"contact":                 a.GetEmail(),
 			"terms_of_service_agreed": a.TermsOfServiceAgreed,
+			"key_type":                a.KeyType,
 			"provider":                a.Provider,
 			"enable_http_01":          a.EnableHTTP01,
 			"enable_tls_alpn_01":      a.EnableTLSALPN01,

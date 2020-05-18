@@ -3,7 +3,6 @@ package acme
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 
@@ -15,7 +14,8 @@ import (
 type account struct {
 	Email                string
 	Registration         *registration.Resource
-	Key                  *ecdsa.PrivateKey
+	Key                  crypto.PrivateKey
+	KeyType              string
 	ServerURL            string
 	Provider             string
 	EnableHTTP01         bool
@@ -59,14 +59,15 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 	}
 
 	block, _ := pem.Decode([]byte(d["private_key"].(string)))
-	privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
 
 	return &account{
-		Email: d["contact"].(string),
-		Key:   privateKey,
+		Email:   d["contact"].(string),
+		Key:     privateKey,
+		KeyType: d["key_type"].(string),
 		Registration: &registration.Resource{
 			URI: d["registration_uri"].(string),
 		},
@@ -79,7 +80,7 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 }
 
 func (a *account) save(ctx context.Context, storage logical.Storage, path string, serverURL string) error {
-	x509Encoded, err := x509.MarshalECPrivateKey(a.Key)
+	x509Encoded, err := x509.MarshalPKCS8PrivateKey(a.Key)
 	if err != nil {
 		return err
 	}
@@ -91,6 +92,7 @@ func (a *account) save(ctx context.Context, storage logical.Storage, path string
 		"contact":                 a.GetEmail(),
 		"terms_of_service_agreed": a.TermsOfServiceAgreed,
 		"private_key":             string(pemEncoded),
+		"key_type":                a.KeyType,
 		"provider":                a.Provider,
 		"enable_http_01":          a.EnableHTTP01,
 		"enable_tls_alpn_01":      a.EnableTLSALPN01,

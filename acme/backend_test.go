@@ -8,13 +8,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/remilapeyre/vault-acme/acme/sidecar"
+	"github.com/stretchr/testify/require"
 )
 
 var serverURL string
@@ -277,72 +277,6 @@ func TestTLSALPN01Challenge(t *testing.T) {
 	makeRequest(t, b, req, "")
 }
 
-func TestAccounts(t *testing.T) {
-	config, b := getTestConfig(t)
-
-	// Create account
-	req := &logical.Request{
-		Operation: logical.CreateOperation,
-		Path:      "accounts/lenstra",
-		Storage:   config.StorageView,
-		Data: map[string]interface{}{
-			"server_url":              serverURL,
-			"contact":                 "remi@lenstra.fr",
-			"terms_of_service_agreed": true,
-			"provider":                "exec",
-		},
-	}
-	resp := makeRequest(t, b, req, "")
-
-	account := map[string]interface{}{}
-	for k, v := range resp.Data {
-		account[k] = v
-	}
-	delete(resp.Data, "registration_uri")
-
-	expected := map[string]interface{}{
-		"contact":                 "remi@lenstra.fr",
-		"server_url":              serverURL,
-		"terms_of_service_agreed": true,
-		"provider":                "exec",
-		"enable_http_01":          false,
-		"enable_tls_alpn_01":      false,
-	}
-	assertEqual(t, expected, resp.Data)
-
-	// Read account
-	req = &logical.Request{
-		Operation: logical.ReadOperation,
-		Path:      "accounts/lenstra",
-		Storage:   config.StorageView,
-	}
-	resp = makeRequest(t, b, req, "")
-	assertEqual(t, account, resp.Data)
-
-	// Read unknown account
-	req = &logical.Request{
-		Operation: logical.ReadOperation,
-		Path:      "accounts/foobar",
-		Storage:   config.StorageView,
-	}
-	resp = makeRequest(t, b, req, "This account does not exists")
-
-	// Delete account
-	req = &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "accounts/lenstra",
-		Storage:   config.StorageView,
-	}
-	makeRequest(t, b, req, "")
-
-	req = &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "accounts/foobar",
-		Storage:   config.StorageView,
-	}
-	makeRequest(t, b, req, "This account does not exists")
-}
-
 func TestRoles(t *testing.T) {
 	config, b := getTestConfig(t)
 	createAccount(t, b, config.StorageView)
@@ -378,7 +312,7 @@ func TestRoles(t *testing.T) {
 			Data:      tcase.RequestData,
 		}
 		resp := makeRequest(t, b, req, "")
-		assertEqual(t, tcase.ExpectedResponse, resp.Data)
+		require.Equal(t, tcase.ExpectedResponse, resp.Data)
 	}
 
 	req := &logical.Request{
@@ -400,7 +334,7 @@ func TestRoles(t *testing.T) {
 		Storage:   config.StorageView,
 	}
 	resp := makeRequest(t, b, req, "")
-	assertEqual(
+	require.Equal(
 		t,
 		resp.Data,
 		map[string]interface{}{
@@ -470,7 +404,7 @@ func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage
 
 	// Since caching is enabled, we should get the same cert when calling the
 	// endoint twice
-	assertEqual(t, first.Data, second.Data)
+	require.Equal(t, first.Data, second.Data)
 
 	return first, second
 }
@@ -624,12 +558,6 @@ func makeRequest(t *testing.T, b logical.Backend, req *logical.Request, expected
 		}
 	}
 	return resp
-}
-
-func assertEqual(t *testing.T, expected, data map[string]interface{}) {
-	if !reflect.DeepEqual(expected, data) {
-		t.Fatalf("bad: expected:%#v\nactual:%#v\n", expected, data)
-	}
 }
 
 type testCase struct {
