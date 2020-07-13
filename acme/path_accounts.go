@@ -52,6 +52,10 @@ func pathAccounts(b *backend) *framework.Path {
 			"enable_tls_alpn_01": &framework.FieldSchema{
 				Type: framework.TypeBool,
 			},
+			"ignore_dns_propagation": &framework.FieldSchema{
+				Type:    framework.TypeBool,
+				Default: false,
+			},
 			"contact": &framework.FieldSchema{
 				Type:     framework.TypeString,
 				Required: true,
@@ -96,6 +100,7 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	provider := data.Get("provider").(string)
 	enableHTTP01 := data.Get("enable_http_01").(bool)
 	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
+	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
 
 	keyType, err := getKeyType(data.Get("key_type").(string))
 	if err != nil {
@@ -117,6 +122,7 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 		EnableHTTP01:         enableHTTP01,
 		EnableTLSALPN01:      enableTLSALPN01,
 		TermsOfServiceAgreed: termsOfServiceAgreed,
+		IgnoreDNSPropagation: ignoreDNSPropagation,
 	}
 
 	client, err := user.getClient()
@@ -164,6 +170,7 @@ func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *f
 			"provider":                a.Provider,
 			"enable_http_01":          a.EnableHTTP01,
 			"enable_tls_alpn_01":      a.EnableTLSALPN01,
+			"ignore_dns_propagation":  a.IgnoreDNSPropagation,
 		},
 	}, nil
 }

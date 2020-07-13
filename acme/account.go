@@ -21,6 +21,7 @@ type account struct {
 	EnableHTTP01         bool
 	EnableTLSALPN01      bool
 	TermsOfServiceAgreed bool
+	IgnoreDNSPropagation bool
 }
 
 // GetEmail returns the Email of the user
@@ -43,6 +44,14 @@ func (a *account) getClient() (*lego.Client, error) {
 	config.CADirURL = a.ServerURL
 
 	return lego.NewClient(config)
+}
+
+func getOrDefault(dict map[string]interface{}, key string, defaultValue interface{}) interface{} {
+	if value, found := dict[key]; found {
+		return value
+	} else {
+		return defaultValue
+	}
 }
 
 func getAccount(ctx context.Context, storage logical.Storage, path string) (*account, error) {
@@ -76,6 +85,7 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		TermsOfServiceAgreed: d["terms_of_service_agreed"].(bool),
 		EnableHTTP01:         d["enable_http_01"].(bool),
 		EnableTLSALPN01:      d["enable_tls_alpn_01"].(bool),
+		IgnoreDNSPropagation: getOrDefault(d, "ignore_dns_propagation", false).(bool),
 	}, nil
 }
 
@@ -96,6 +106,7 @@ func (a *account) save(ctx context.Context, storage logical.Storage, path string
 		"provider":                a.Provider,
 		"enable_http_01":          a.EnableHTTP01,
 		"enable_tls_alpn_01":      a.EnableTLSALPN01,
+		"ignore_dns_propagation":  a.IgnoreDNSPropagation,
 	})
 	if err != nil {
 		return err
