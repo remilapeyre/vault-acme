@@ -21,6 +21,7 @@ type account struct {
 	EnableHTTP01         bool
 	EnableTLSALPN01      bool
 	TermsOfServiceAgreed bool
+	IgnoreDNSPropagation bool
 }
 
 // GetEmail returns the Email of the user
@@ -64,7 +65,7 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		return nil, err
 	}
 
-	return &account{
+	a := &account{
 		Email:   d["contact"].(string),
 		Key:     privateKey,
 		KeyType: d["key_type"].(string),
@@ -76,7 +77,13 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		TermsOfServiceAgreed: d["terms_of_service_agreed"].(bool),
 		EnableHTTP01:         d["enable_http_01"].(bool),
 		EnableTLSALPN01:      d["enable_tls_alpn_01"].(bool),
-	}, nil
+	}
+
+	if ignoreDNSPropagation, ok := d["ignore_dns_propagation"]; ok {
+		a.IgnoreDNSPropagation = ignoreDNSPropagation.(bool)
+	}
+
+	return a, nil
 }
 
 func (a *account) save(ctx context.Context, storage logical.Storage, path string, serverURL string) error {
@@ -96,6 +103,7 @@ func (a *account) save(ctx context.Context, storage logical.Storage, path string
 		"provider":                a.Provider,
 		"enable_http_01":          a.EnableHTTP01,
 		"enable_tls_alpn_01":      a.EnableTLSALPN01,
+		"ignore_dns_propagation":  a.IgnoreDNSPropagation,
 	})
 	if err != nil {
 		return err

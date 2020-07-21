@@ -24,6 +24,7 @@ func TestAccounts(t *testing.T) {
 		"key_type":                "EC256",
 		"enable_http_01":          false,
 		"enable_tls_alpn_01":      false,
+		"ignore_dns_propagation":  false,
 	}
 
 	testCases := []struct {
