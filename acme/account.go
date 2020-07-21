@@ -46,14 +46,6 @@ func (a *account) getClient() (*lego.Client, error) {
 	return lego.NewClient(config)
 }
 
-func getOrDefault(dict map[string]interface{}, key string, defaultValue interface{}) interface{} {
-	if value, found := dict[key]; found {
-		return value
-	} else {
-		return defaultValue
-	}
-}
-
 func getAccount(ctx context.Context, storage logical.Storage, path string) (*account, error) {
 	storageEntry, err := storage.Get(ctx, path)
 	if err != nil {
@@ -73,7 +65,7 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		return nil, err
 	}
 
-	return &account{
+	a := &account{
 		Email:   d["contact"].(string),
 		Key:     privateKey,
 		KeyType: d["key_type"].(string),
@@ -85,8 +77,13 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		TermsOfServiceAgreed: d["terms_of_service_agreed"].(bool),
 		EnableHTTP01:         d["enable_http_01"].(bool),
 		EnableTLSALPN01:      d["enable_tls_alpn_01"].(bool),
-		IgnoreDNSPropagation: getOrDefault(d, "ignore_dns_propagation", false).(bool),
-	}, nil
+	}
+
+	if ignoreDNSPropagation, ok := d["ignore_dns_propagation"]; ok {
+		a.IgnoreDNSPropagation = ignoreDNSPropagation.(bool)
+	}
+
+	return a, nil
 }
 
 func (a *account) save(ctx context.Context, storage logical.Storage, path string, serverURL string) error {
