@@ -15,25 +15,25 @@ func secretCert(b *backend) *framework.Secret {
 	return &framework.Secret{
 		Type: secretCertType,
 		Fields: map[string]*framework.FieldSchema{
-			"domain": &framework.FieldSchema{
+			"domain": {
 				Type: framework.TypeString,
 			},
-			"url": &framework.FieldSchema{
+			"url": {
 				Type: framework.TypeString,
 			},
-			"private_key": &framework.FieldSchema{
+			"private_key": {
 				Type: framework.TypeString,
 			},
-			"cert": &framework.FieldSchema{
+			"cert": {
 				Type: framework.TypeString,
 			},
-			"issuer_cert": &framework.FieldSchema{
+			"issuer_cert": {
 				Type: framework.TypeString,
 			},
-			"not_before": &framework.FieldSchema{
+			"not_before": {
 				Type: framework.TypeString,
 			},
-			"not_after": &framework.FieldSchema{
+			"not_after": {
 				Type: framework.TypeString,
 			},
 		},
@@ -100,6 +100,9 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 			return nil, fmt.Errorf("Error while revoking certificate: user not found")
 		}
 		client, err := a.getClient()
+		if err != nil {
+			return logical.ErrorResponse("Failed to get LEGO client."), err
+		}
 		err = client.Certificate.Revoke([]byte(cert))
 		if err != nil {
 			return nil, fmt.Errorf("failed to revoke cert: %v", err)
