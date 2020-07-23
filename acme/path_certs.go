@@ -19,15 +19,15 @@ func pathCerts(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "certs/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
-			"role": &framework.FieldSchema{
+			"role": {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"common_name": &framework.FieldSchema{
+			"common_name": {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"alternative_names": &framework.FieldSchema{
+			"alternative_names": {
 				Type: framework.TypeCommaStringSlice,
 			},
 		},
@@ -127,6 +127,9 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	}
 
 	client, err := a.getClient()
+	if err != nil {
+		return logical.ErrorResponse("Failed to get LEGO client."), err
+	}
 
 	b.setupChallengeProviders(ctx, client, a, req)
 
