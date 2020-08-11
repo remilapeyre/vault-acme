@@ -34,6 +34,7 @@ jobs:
         curl -sLo vault.zip https://releases.hashicorp.com/vault/1.3.2/vault_1.3.2_linux_amd64.zip
         unzip vault.zip
         sudo mv vault /usr/local/bin/vault
+        rm vault.zip
         make testacc
 
     - name: Build all binaries
@@ -46,6 +47,7 @@ jobs:
             linux_amd64 solaris_amd64 openbsd_386
           do zip --junk-paths $arch.zip ./build/$arch/*
         done
+        sha256sum *.zip >vault-acme_SHA256SUMS
 
     - name: Create Release
       id: create_release
@@ -189,3 +191,14 @@ jobs:
         asset_path: ./openbsd_386.zip
         asset_name: openbsd_386.zip
         asset_content_type: application/zip
+
+    - name: Upload SHA256SUMS
+      id: upload-sha256sums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./vault-acme_SHA256SUMS
+        asset_name: vault-acme_SHA256SUMS
+        asset_content_type: text/plain
