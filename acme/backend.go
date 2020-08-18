@@ -10,11 +10,14 @@ import (
 
 type backend struct {
 	*framework.Backend
+	cache *Cache
 }
 
 // Factory creates a new ACME backend implementing logical.Backend
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
-	var b backend
+	b := backend{
+		cache: NewCache(),
+	}
 
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeLogical,
@@ -33,6 +36,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
+
 	return b, nil
 }
 
@@ -43,10 +47,4 @@ func (b *backend) pathExistenceCheck(ctx context.Context, req *logical.Request, 
 	}
 
 	return out != nil, nil
-}
-
-func (b *backend) Cache() cache {
-	return cache{
-		b: b,
-	}
 }

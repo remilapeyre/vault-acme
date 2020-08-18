@@ -9,9 +9,6 @@ import (
 
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/certificate"
-	"github.com/go-acme/lego/v3/challenge/dns01"
-	"github.com/go-acme/lego/v3/lego"
-	"github.com/go-acme/lego/v3/providers/dns"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -66,154 +63,52 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 	if a == nil {
 		return logical.ErrorResponse("This account does not exists"), nil
 	}
-
-	// Let's first check the cache to see if a cert already exists
-	if !r.DisableCache {
-		// Lookup cache
-		key, err := getCacheKey(r, data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get cache key: %v", err)
-		}
-		storageEntry, err := req.Storage.Get(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		if storageEntry != nil {
-			// Something was found in the cache
-			var d map[string]interface{}
-			storageEntry.DecodeJSON(&d)
-			data := d["data"].(map[string]interface{})
-			internalData := d["internal"].(map[string]interface{})
-
-			// Check if the cached cert is stale
-			layout := "2006-01-02 15:04:05.999999999 -0700 MST"
-			notBefore, err := time.Parse(layout, data["not_before"].(string))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse not_before: %v", err)
-			}
-			notAfter, err := time.Parse(layout, data["not_after"].(string))
-			if err != nil {
-				return nil, fmt.Errorf("Failed to parse not_after: %v", err)
-			}
-			certTTL := notAfter.Sub(notBefore).Seconds()
-			remaining := notAfter.Sub(time.Now()).Seconds()
-
-			if remaining > float64(r.CacheForRatio)*certTTL/100 {
-				b.Logger().Debug("Cached cert can be used")
-
-				internalData["cert"] = internalData["cert"].(string)
-				s := b.Secret(secretCertType).Response(data, internalData)
-				s.Secret.MaxTTL = notAfter.Sub(time.Now())
-
-				// I'm not sure how Vault handles concurrent requests and if
-				// a lock should have been taken here
-				users, err := d["users"].(json.Number).Int64()
-				if err != nil {
-					return nil, fmt.Errorf("failed to decode users: %v", err)
-				}
-				d["users"] = users + 1
-				storageEntry, err = logical.StorageEntryJSON(key, d)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create cache entry: %v", err)
-				}
-				err = req.Storage.Put(ctx, storageEntry)
-				if err != nil {
-					return nil, fmt.Errorf("failed to save cache entry: %v", err)
-				}
-
-				return s, nil
-			}
-			b.Logger().Debug("Cached cert cannot be used")
-		}
-	}
-
-	client, err := a.getClient()
-	if err != nil {
-		return logical.ErrorResponse("Failed to get LEGO client."), err
-	}
-
-	b.setupChallengeProviders(ctx, client, a, req)
-
-	request := certificate.ObtainRequest{
-		Domains: names,
-		Bundle:  true,
-	}
-
-	b.Logger().Debug("Requesting certificate from CA")
-	cert, err := client.Certificate.Obtain(request)
-	b.Logger().Debug("Got response from CA", "err", err)
-	if err != nil {
-		return logical.ErrorResponse("Failed to validate certificate signing request."), err
-	}
-
-	// Use the helper to create the secret
-	key, err := getCacheKey(r, data)
+	// Lookup cache
+	cacheKey, err := getCacheKey(r, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cache key: %v", err)
 	}
-	s, err := b.getSecret(path, key, cert)
+
+	var cert *certificate.Resource
+
+	// Let's first check the cache to see if a cert already exists
+	if !r.DisableCache {
+		b.cache.Lock()
+		defer b.cache.Unlock()
+		b.Logger().Debug("Look in the cache for a saved cert")
+		ce, err := b.cache.Read(ctx, req.Storage, r, cacheKey)
+		if err != nil {
+			return nil, err
+		}
+		if ce == nil {
+			b.Logger().Debug("Certificate not found in the cache")
+		} else {
+			cert = ce.Certificate()
+		}
+	}
+
+	// If we did not find a cert, we have to request one
+	if cert == nil {
+		b.Logger().Debug("Contacting the ACME provider to get a new certificate")
+		cert, err = getCertFromACMEProvider(ctx, b.Logger(), req, a, names)
+		if err != nil {
+			return logical.ErrorResponse("Failed to validate certificate signing request."), err
+		}
+		// Save the cert in the cache for the next request
+		if !r.DisableCache {
+			err = b.cache.Create(ctx, req.Storage, r, cacheKey, cert)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	s, err := b.getSecret(path, cacheKey, cert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the secret: %v", err)
 	}
 
-	// Save the cert to the cache
-	if !r.DisableCache {
-		data := map[string]interface{}{
-			"users": 1,
-			"data":  s.Data,
-			"internal": map[string]interface{}{
-				"cache_key": key,
-				"account":   s.Secret.InternalData["account"],
-				"url":       s.Secret.InternalData["url"],
-				"cert":      s.Data["cert"],
-			},
-		}
-		storageEntry, err := logical.StorageEntryJSON(key, data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cache entry: %v", err)
-		}
-		err = req.Storage.Put(ctx, storageEntry)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save cache entry: %v", err)
-		}
-	}
-
 	return s, nil
-}
-
-func (b *backend) setupChallengeProviders(ctx context.Context, client *lego.Client, a *account, req *logical.Request) error {
-	// DNS-01
-	if a.Provider != "" {
-		provider, err := dns.NewDNSChallengeProviderByName(a.Provider)
-		if err != nil {
-			return err
-		}
-		err = client.Challenge.SetDNS01Provider(provider,
-			dns01.CondOption(a.IgnoreDNSPropagation, dns01.DisableCompletePropagationRequirement()))
-		if err != nil {
-			return err
-		}
-	}
-
-	// HTTP-01
-	if a.EnableHTTP01 {
-		provider := newVaultHTTP01Provider(ctx, b.Logger(), req)
-		err := client.Challenge.SetHTTP01Provider(provider)
-		if err != nil {
-			return err
-		}
-	}
-
-	// TLS-ALPN-01
-	if a.EnableTLSALPN01 {
-		provider := newVaultTLSALPN01Provider(ctx, b.Logger(), req)
-		err := client.Challenge.SetTLSALPN01Provider(provider)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func getCacheKey(r *role, data *framework.FieldData) (string, error) {
