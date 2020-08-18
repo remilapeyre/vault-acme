@@ -2,6 +2,7 @@ package acme
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-acme/lego/v3/certificate"
 	"github.com/go-acme/lego/v3/challenge/dns01"
@@ -37,8 +38,12 @@ func setupChallengeProviders(ctx context.Context, logger log.Logger, client *leg
 		if err != nil {
 			return err
 		}
+
+		nameServer := os.Getenv("LEGO_TEST_NAMESERVER")
+		isTesting := nameServer != ""
 		err = client.Challenge.SetDNS01Provider(provider,
-			dns01.CondOption(a.IgnoreDNSPropagation, dns01.DisableCompletePropagationRequirement()))
+			dns01.CondOption(isTesting, dns01.AddRecursiveNameservers([]string{nameServer})),
+			dns01.CondOption(a.IgnoreDNSPropagation || isTesting, dns01.DisableCompletePropagationRequirement()))
 		if err != nil {
 			return err
 		}

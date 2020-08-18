@@ -20,7 +20,7 @@ cleanup()
 export VAULT_TOKEN=foo
 export VAULT_ADDR=http://127.0.0.1:8200
 export PEBBLE_VA_NOSLEEP=1
-export LEGO_NAMESERVER=127.0.0.1:8053
+export LEGO_TEST_NAMESERVER=127.0.0.1:8053
 export EXEC_PROPAGATION_TIMEOUT=5
 export EXEC_PATH=$PWD/test/test_dns.sh
 export LEGO_CA_CERTIFICATES=$PWD/test/certs/pebble.minica.pem

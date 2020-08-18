@@ -285,7 +285,7 @@ func TestRoles(t *testing.T) {
 	testCases := []testCase{
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra"},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string(nil), "cache_for_ratio": 70, "disable_cache": false},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string{}, "cache_for_ratio": 70, "disable_cache": false},
 		},
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allowed_domains": "sentry.lenstra.fr"},
@@ -293,7 +293,7 @@ func TestRoles(t *testing.T) {
 		},
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allow_bare_domains": true},
-			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": true, "allow_subdomains": false, "allowed_domains": []string(nil), "cache_for_ratio": 70, "disable_cache": false},
+			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": true, "allow_subdomains": false, "allowed_domains": []string{}, "cache_for_ratio": 70, "disable_cache": false},
 		},
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra", "allow_subdomains": true, "allowed_domains": []string{"lenstra.fr"}, "cache_for_ratio": 50},
