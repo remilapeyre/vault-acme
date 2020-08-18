@@ -12,16 +12,17 @@ import (
 )
 
 type account struct {
-	Email                string
-	Registration         *registration.Resource
-	Key                  crypto.PrivateKey
-	KeyType              string
-	ServerURL            string
-	Provider             string
-	EnableHTTP01         bool
-	EnableTLSALPN01      bool
-	TermsOfServiceAgreed bool
-	IgnoreDNSPropagation bool
+	Email                 string
+	Registration          *registration.Resource
+	Key                   crypto.PrivateKey
+	KeyType               string
+	ServerURL             string
+	Provider              string
+	ProviderConfiguration map[string]string
+	EnableHTTP01          bool
+	EnableTLSALPN01       bool
+	TermsOfServiceAgreed  bool
+	IgnoreDNSPropagation  bool
 }
 
 // GetEmail returns the Email of the user
@@ -65,6 +66,11 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		return nil, err
 	}
 
+	providerConfiguration := map[string]string{}
+	for k, v := range d["provider_configuration"].(map[string]interface{}) {
+		providerConfiguration[k] = v.(string)
+	}
+
 	a := &account{
 		Email:   d["contact"].(string),
 		Key:     privateKey,
@@ -72,11 +78,12 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		Registration: &registration.Resource{
 			URI: d["registration_uri"].(string),
 		},
-		ServerURL:            d["server_url"].(string),
-		Provider:             d["provider"].(string),
-		TermsOfServiceAgreed: d["terms_of_service_agreed"].(bool),
-		EnableHTTP01:         d["enable_http_01"].(bool),
-		EnableTLSALPN01:      d["enable_tls_alpn_01"].(bool),
+		ServerURL:             d["server_url"].(string),
+		Provider:              d["provider"].(string),
+		ProviderConfiguration: providerConfiguration,
+		TermsOfServiceAgreed:  d["terms_of_service_agreed"].(bool),
+		EnableHTTP01:          d["enable_http_01"].(bool),
+		EnableTLSALPN01:       d["enable_tls_alpn_01"].(bool),
 	}
 
 	if ignoreDNSPropagation, ok := d["ignore_dns_propagation"]; ok {
@@ -101,6 +108,7 @@ func (a *account) save(ctx context.Context, storage logical.Storage, path string
 		"private_key":             string(pemEncoded),
 		"key_type":                a.KeyType,
 		"provider":                a.Provider,
+		"provider_configuration":  a.ProviderConfiguration,
 		"enable_http_01":          a.EnableHTTP01,
 		"enable_tls_alpn_01":      a.EnableTLSALPN01,
 		"ignore_dns_propagation":  a.IgnoreDNSPropagation,

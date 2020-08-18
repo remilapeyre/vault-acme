@@ -48,6 +48,7 @@ This endpoint register an ACME account with the provided ACME CA.
 - `contact` `(string: <required>)` - The contact email address for the account.
 - `key_type` `(string: <optional>)` - The type of key to use for the account key. Some key may not be supported by all ACME providers. Can be one of `EC256`, `EC384`, `RSA2048`, `RSA4096` and `RSA8192`.
 - `provider` `(string: <optional>)` - Which DNS provider to use to resolve the DNS challenge. Setting this parameter will activate the DNS-01 challenge.
+- `provider_configuration` `(map of strings: <optional>)` - The configuration to use for the DNS provider when not using environment variables.
 - `enable_http_01` `(bool: false)` - Whether to activate the HTTP-01 challenge.
 - `enable_tls_alpn_01` `(bool: false)` - Whether to activate the TLS-ALPN-01 challenge.
 - `ignore_dns_propagation` `(bool: false)` - Do not wait until the DNS updates have been propagated to all DNS servers. Only relevent for DNS-01 challenges.

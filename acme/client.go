@@ -34,7 +34,7 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 func setupChallengeProviders(ctx context.Context, logger log.Logger, client *lego.Client, a *account, req *logical.Request) error {
 	// DNS-01
 	if a.Provider != "" {
-		provider, err := dns.NewDNSChallengeProviderByName(a.Provider)
+		provider, err := dns.NewDNSChallengeProviderByName(a.Provider, a.ProviderConfiguration)
 		if err != nil {
 			return err
 		}

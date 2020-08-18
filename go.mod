@@ -22,3 +22,5 @@ require (
 )
 
 replace github.com/remilapeyre/vault-acme/acme/sidecar v0.0.0 => ./acme/sidecar
+
+replace github.com/go-acme/lego/v3 v3.8.0 => github.com/remilapeyre/lego/v3 v3.1.1-0.20200818210747-3ee7b6b69b33

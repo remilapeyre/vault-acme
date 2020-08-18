@@ -21,6 +21,7 @@ func TestAccounts(t *testing.T) {
 		"server_url":              serverURL,
 		"terms_of_service_agreed": true,
 		"provider":                "exec",
+		"provider_configuration":  map[string]string{},
 		"key_type":                "EC256",
 		"enable_http_01":          false,
 		"enable_tls_alpn_01":      false,

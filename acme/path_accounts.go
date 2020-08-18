@@ -46,6 +46,9 @@ func pathAccounts(b *backend) *framework.Path {
 			"provider": {
 				Type: framework.TypeString,
 			},
+			"provider_configuration": {
+				Type: framework.TypeKVPairs,
+			},
 			"enable_http_01": {
 				Type: framework.TypeBool,
 			},
@@ -98,6 +101,7 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	contact := data.Get("contact").(string)
 	termsOfServiceAgreed := data.Get("terms_of_service_agreed").(bool)
 	provider := data.Get("provider").(string)
+	providerConfiguration := data.Get("provider_configuration").(map[string]string)
 	enableHTTP01 := data.Get("enable_http_01").(bool)
 	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
 	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
@@ -114,15 +118,16 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	}
 
 	user := account{
-		Email:                contact,
-		Key:                  privateKey,
-		KeyType:              data.Get("key_type").(string),
-		ServerURL:            serverURL,
-		Provider:             provider,
-		EnableHTTP01:         enableHTTP01,
-		EnableTLSALPN01:      enableTLSALPN01,
-		TermsOfServiceAgreed: termsOfServiceAgreed,
-		IgnoreDNSPropagation: ignoreDNSPropagation,
+		Email:                 contact,
+		Key:                   privateKey,
+		KeyType:               data.Get("key_type").(string),
+		ServerURL:             serverURL,
+		Provider:              provider,
+		ProviderConfiguration: providerConfiguration,
+		EnableHTTP01:          enableHTTP01,
+		EnableTLSALPN01:       enableTLSALPN01,
+		TermsOfServiceAgreed:  termsOfServiceAgreed,
+		IgnoreDNSPropagation:  ignoreDNSPropagation,
 	}
 
 	client, err := user.getClient()
@@ -168,6 +173,7 @@ func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *f
 			"terms_of_service_agreed": a.TermsOfServiceAgreed,
 			"key_type":                a.KeyType,
 			"provider":                a.Provider,
+			"provider_configuration":  a.ProviderConfiguration,
 			"enable_http_01":          a.EnableHTTP01,
 			"enable_tls_alpn_01":      a.EnableTLSALPN01,
 			"ignore_dns_propagation":  a.IgnoreDNSPropagation,
