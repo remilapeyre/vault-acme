@@ -66,11 +66,9 @@ func pathAccounts(b *backend) *framework.Path {
 		},
 		ExistenceCheck: b.pathExistenceCheck,
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.accountCreate,
+			logical.CreateOperation: b.accountWrite,
 			logical.ReadOperation:   b.accountRead,
-			// TODO(remi): this is not yet possible with Lego, see
-			// https://github.com/go-acme/lego/issues/443
-			// logical.UpdateOperation: nil,
+			logical.UpdateOperation: b.accountWrite,
 			logical.DeleteOperation: b.accountDelete,
 		},
 	}
@@ -93,7 +91,7 @@ func getKeyType(t string) (certcrypto.KeyType, error) {
 	}
 }
 
-func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := data.Validate(); err != nil {
 		return nil, err
 	}
@@ -106,39 +104,63 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
 	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
 
-	keyType, err := getKeyType(data.Get("key_type").(string))
+	var update bool
+	user, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+		return nil, err
 	}
 
-	b.Logger().Info("Generating key pair for new account")
-	privateKey, err := certcrypto.GeneratePrivateKey(keyType)
-	if err != nil {
-		return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
+	if user == nil {
+		b.Logger().Info("Generating key pair for new account")
+		keyType, err := getKeyType(data.Get("key_type").(string))
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		privateKey, err := certcrypto.GeneratePrivateKey(keyType)
+		if err != nil {
+			return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
+		}
+
+		user = &account{
+			ServerURL: serverURL,
+			KeyType:   data.Get("key_type").(string),
+			Key:       privateKey,
+		}
+	} else {
+		update = true
+		if serverURL != user.ServerURL {
+			return logical.ErrorResponse("Cannot update server_url"), nil
+		}
+		if data.Get("key_type").(string) != user.KeyType {
+			return logical.ErrorResponse("Cannot update key_type"), nil
+		}
 	}
 
-	user := account{
-		Email:                 contact,
-		Key:                   privateKey,
-		KeyType:               data.Get("key_type").(string),
-		ServerURL:             serverURL,
-		Provider:              provider,
-		ProviderConfiguration: providerConfiguration,
-		EnableHTTP01:          enableHTTP01,
-		EnableTLSALPN01:       enableTLSALPN01,
-		TermsOfServiceAgreed:  termsOfServiceAgreed,
-		IgnoreDNSPropagation:  ignoreDNSPropagation,
-	}
+	user.Email = contact
+	user.Provider = provider
+	user.ProviderConfiguration = providerConfiguration
+	user.EnableHTTP01 = enableHTTP01
+	user.EnableTLSALPN01 = enableTLSALPN01
+	user.TermsOfServiceAgreed = termsOfServiceAgreed
+	user.IgnoreDNSPropagation = ignoreDNSPropagation
 
 	client, err := user.getClient()
 	if err != nil {
 		return nil, err
 	}
 
-	b.Logger().Info("Registring new account")
-	reg, err := client.Registration.Register(registration.RegisterOptions{
+	var reg *registration.Resource
+	options := registration.RegisterOptions{
 		TermsOfServiceAgreed: termsOfServiceAgreed,
-	})
+	}
+	if update {
+		b.Logger().Info("Updating account")
+		reg, err = client.Registration.UpdateRegistration(options)
+	} else {
+		b.Logger().Info("Registring new account")
+		reg, err = client.Registration.Register(options)
+	}
+
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -148,7 +170,7 @@ func (b *backend) accountCreate(ctx context.Context, req *logical.Request, data 
 		return nil, errwrap.Wrapf("Failed to create storage entry: {{err}}", err)
 	}
 
-	b.Logger().Info("Saving new account")
+	b.Logger().Info("Saving account")
 	if err = user.save(ctx, req.Storage, req.Path, serverURL); err != nil {
 		return nil, err
 	}

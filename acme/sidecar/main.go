@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-acme/lego/v3/challenge/tlsalpn01"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/go-acme/lego/v3/challenge/tlsalpn01"
 )
 
 type client interface {

@@ -85,7 +85,7 @@ func TestAccounts(t *testing.T) {
 		require.Equal(t, expected, resp.Data)
 
 		// Delete account
-		req.Operation = logical.ReadOperation
+		req.Operation = logical.DeleteOperation
 		makeRequest(t, b, req, "")
 	}
 
@@ -98,6 +98,28 @@ func TestAccounts(t *testing.T) {
 		Data:      data,
 	}
 	makeRequest(t, b, req, `"foo" is not a supported key type`)
+}
+
+func TestUpdateAccount(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	req := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "rem@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"provider":                "exec",
+		},
+	}
+	created := makeRequest(t, b, req, "")
+
+	req.Data["contact"] = "remi@lenstra.fr"
+	req.Operation = logical.UpdateOperation
+	updated := makeRequest(t, b, req, "")
+	require.Equal(t, created.Data["registration_uri"], updated.Data["registration_uri"])
 }
 
 func TestDeleteAccount(t *testing.T) {

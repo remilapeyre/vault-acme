@@ -44,7 +44,20 @@ func TestVault(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = logical.Write(
+	// Create an account
+	created, err := logical.Write(
+		"acme/accounts/lenstra",
+		map[string]interface{}{
+			"contact":                 "rem@lenstra.fr",
+			"server_url":              "https://localhost:14000/dir",
+			"terms_of_service_agreed": true,
+			"provider":                "exec",
+		},
+	)
+	require.NoError(t, err)
+
+	// Update the account
+	updated, err := logical.Write(
 		"acme/accounts/lenstra",
 		map[string]interface{}{
 			"contact":                 "remi@lenstra.fr",
@@ -54,6 +67,8 @@ func TestVault(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
+	require.Equal(t, created.Data["registration_uri"], updated.Data["registration_uri"])
 
 	// Create a role
 	_, err = logical.Write(
@@ -74,6 +89,7 @@ func TestVault(t *testing.T) {
 			"common_name": "www.lenstra.fr",
 		},
 	)
+	require.NoError(t, err)
 
 	// Request another certificate and revoke it
 	secret, err := logical.Write(

@@ -19,7 +19,7 @@ update your API calls accordingly.
 
 ## Table of Contents
 
-* [Create ACME account](#create-acme-account)
+* [Create or update ACME account](#create-or-update-acme-account)
 * [Read ACME account](#read-acme-account)
 * [Delete ACME account](#delete-acme-account)
 * [Create/Update Role](#create-update-role)
@@ -31,7 +31,7 @@ update your API calls accordingly.
 * [Read the cache state](#read-the-cache-state)
 * [Clear the cache](#clear-the-cache)
 
-## Create ACME account
+## Create or update ACME account
 
 This endpoint register an ACME account with the provided ACME CA.
 
