@@ -12,7 +12,7 @@ func pathChallenges(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "challenges/(http-01|tls-alpn-01)/" + framework.MatchAllRegex("path"),
 		Fields: map[string]*framework.FieldSchema{
-			"path": &framework.FieldSchema{
+			"path": {
 				Type:     framework.TypeString,
 				Required: true,
 			},

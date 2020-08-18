@@ -12,23 +12,23 @@ func pathRoles(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
-			"account": &framework.FieldSchema{
+			"account": {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"allowed_domains": &framework.FieldSchema{
+			"allowed_domains": {
 				Type: framework.TypeCommaStringSlice,
 			},
-			"allow_bare_domains": &framework.FieldSchema{
+			"allow_bare_domains": {
 				Type: framework.TypeBool,
 			},
-			"allow_subdomains": &framework.FieldSchema{
+			"allow_subdomains": {
 				Type: framework.TypeBool,
 			},
-			"disable_cache": &framework.FieldSchema{
+			"disable_cache": {
 				Type: framework.TypeBool,
 			},
-			"cache_for_ratio": &framework.FieldSchema{
+			"cache_for_ratio": {
 				Type:    framework.TypeInt,
 				Default: 70,
 			},

@@ -23,40 +23,40 @@ func pathAccounts(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "accounts/" + framework.GenericNameRegex("account"),
 		Fields: map[string]*framework.FieldSchema{
-			"account": &framework.FieldSchema{
+			"account": {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"server_url": &framework.FieldSchema{
+			"server_url": {
 				Type: framework.TypeString,
 				// Required is only used in the documentation for now
 				Required: true,
 			},
-			"terms_of_service_agreed": &framework.FieldSchema{
+			"terms_of_service_agreed": {
 				Type:    framework.TypeBool,
 				Default: false,
 			},
-			"key_type": &framework.FieldSchema{
+			"key_type": {
 				Type:          framework.TypeString,
 				Default:       "EC256",
 				AllowedValues: keyTypes,
 			},
 			// TODO(remi): We should have a list of those so we can request certs
 			// for domains registred to different providers
-			"provider": &framework.FieldSchema{
+			"provider": {
 				Type: framework.TypeString,
 			},
-			"enable_http_01": &framework.FieldSchema{
+			"enable_http_01": {
 				Type: framework.TypeBool,
 			},
-			"enable_tls_alpn_01": &framework.FieldSchema{
+			"enable_tls_alpn_01": {
 				Type: framework.TypeBool,
 			},
-			"ignore_dns_propagation": &framework.FieldSchema{
+			"ignore_dns_propagation": {
 				Type:    framework.TypeBool,
 				Default: false,
 			},
-			"contact": &framework.FieldSchema{
+			"contact": {
 				Type:     framework.TypeString,
 				Required: true,
 			},
