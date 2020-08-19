@@ -25,6 +25,8 @@ jobs:
     - name: Run unit tests
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin
+        PEBBLE_VA_NOSLEEP=1 pebble -dnsserver 127.0.0.1:8053 &
+        pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
         make test
 
     - name: Run acceptance tests

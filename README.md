@@ -34,10 +34,10 @@ you can mount the plugin like any other: `vault secrets enable -path acme -plugi
 
 ## Tests
 
-Acceptance tests are run againts [Pebble](https://github.com/letsencrypt/pebble),
-a running container will be needed for them to pass:
+Acceptance tests are run against [Pebble](https://github.com/letsencrypt/pebble):
 
 ```bash
-$ docker run -d -e "PEBBLE_VA_NOSLEEP=1" -p 14000:14000 -p 15000:15000 letsencrypt/pebble pebble -dnsserver 1.1.1.1:53
-$ LEGO_CA_CERTIFICATES=$PWD/test/certs/pebble.minica.pem make test
+$ PEBBLE_VA_NOSLEEP=1 pebble -dnsserver 127.0.0.1:8053 &
+$ pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
+$ make test
 ```

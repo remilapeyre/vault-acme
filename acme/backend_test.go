@@ -104,6 +104,23 @@ func TestValidateNames(t *testing.T) {
 func getTestConfig(t *testing.T) (*logical.BackendConfig, logical.Backend) {
 	serverURL = getEnv("TEST_SERVER_URL", "https://localhost:14000/dir")
 
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Setenv("LEGO_TEST_NAMESERVER", "127.0.0.1:8053"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Setenv("EXEC_PROPAGATION_TIMEOUT", "5"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Setenv("EXEC_PATH", wd+"/../test/test_dns.sh"); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Setenv("LEGO_CA_CERTIFICATES", wd+"/../test/certs/pebble.minica.pem"); err != nil {
+		t.Fatal(err)
+	}
+
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
 	b, err := Factory(context.Background(), config)

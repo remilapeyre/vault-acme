@@ -16,7 +16,7 @@ clean:
 
 .PHONY: test
 test:
-	@CGO_ENABLED=0 ./test/run_tests.sh $(TEST_ARGS)
+	@CGO_ENABLED=0 go test $(TEST_ARGS) ./acme
 
 .PHONY: testacc
 testacc: build
