@@ -20,7 +20,7 @@ test:
 
 .PHONY: testacc
 testacc: build
-	@CGO_ENABLED=0 ./test/run_acceptance_tests.sh $(TEST_ARGS)
+	@CGO_ENABLED=0 go test $(TEST_ARGS) ./test
 
 .PHONY: website
 website:
