@@ -2,6 +2,7 @@ package acme
 
 import (
 	"context"
+	"crypto/x509"
 	"os"
 
 	"github.com/go-acme/lego/v3/certificate"
@@ -20,6 +21,7 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 
 	err = setupChallengeProviders(ctx, logger, client, a, req)
 	if err != nil {
+		logger.Error("Failed to setup challenge provider")
 		return nil, err
 	}
 
@@ -31,10 +33,28 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 	return client.Certificate.Obtain(request)
 }
 
+func signCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logical.Request, a *account, names []string, csr []byte) (*certificate.Resource, error) {
+	client, err := a.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	err = setupChallengeProviders(ctx, logger, client, a, req)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug("Creating cert request")
+	request := x509.CertificateRequest{Raw: csr, DNSNames: names}
+
+	logger.Debug("obtaining cert")
+	return client.Certificate.ObtainForCSR(request, true)
+}
+
 func setupChallengeProviders(ctx context.Context, logger log.Logger, client *lego.Client, a *account, req *logical.Request) error {
 	// DNS-01
 	if a.Provider != "" {
-		provider, err := dns.NewDNSChallengeProviderByName(a.Provider, a.ProviderConfiguration)
+		provider, err := dns.NewDNSChallengeProviderByName(a.Provider)
 		if err != nil {
 			return err
 		}

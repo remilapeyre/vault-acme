@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"log"
 
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/certificate"
@@ -15,7 +16,7 @@ import (
 
 func pathCerts(b *backend) *framework.Path {
 	return &framework.Path{
-		Pattern: "certs/" + framework.GenericNameRegex("role"),
+		Pattern: "issue/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Type:     framework.TypeString,
@@ -25,7 +26,7 @@ func pathCerts(b *backend) *framework.Path {
 				Type:     framework.TypeString,
 				Required: true,
 			},
-			"alternative_names": {
+			"alt_names": {
 				Type: framework.TypeCommaStringSlice,
 			},
 		},
@@ -34,6 +35,106 @@ func pathCerts(b *backend) *framework.Path {
 			logical.CreateOperation: b.certCreate,
 		},
 	}
+}
+
+func pathSign(b *backend) *framework.Path {
+	ret := &framework.Path{
+		Pattern: "sign/" + framework.GenericNameRegex("role"),
+
+		Fields: map[string]*framework.FieldSchema{
+			"role": {
+				Type:     framework.TypeString,
+				Required: true,
+			},
+			"csr": {
+				Type:        framework.TypeString,
+				Description: `PEM-format CSR to be signed.`,
+				Required: true,
+			},
+
+			"common_name": {
+				Type: framework.TypeString,
+				Description: `The requested common name; if you want more than
+one, specify the alternative names in the
+alt_names map. If email protection is enabled
+in the role, this may be an email address.`,
+			},
+
+			"alt_names": {
+				Type: framework.TypeCommaStringSlice,
+				Description: `The requested Subject Alternative Names, if any,
+in a comma-delimited list. If email protection
+is enabled for the role, this may contain
+email addresses.`,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name: "DNS/Email Subject Alternative Names (SANs)",
+				},
+			},
+		},
+
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.UpdateOperation: b.certSign,
+		},
+	}
+
+	return ret
+}
+
+func (b *backend) certSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if err := data.Validate(); err != nil {
+		return nil, err
+	}
+
+	names := getNames(data)
+	csr := []byte(data.Get("csr").(string))
+
+	path := "roles/" + data.Get("role").(string)
+	r, err := getRole(ctx, req.Storage, path)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return logical.ErrorResponse("This role does not exists."), nil
+	}
+	if err = validateNames(b, r, names); err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+
+	path = "accounts/" + r.Account
+	a, err := getAccount(ctx, req.Storage, path)
+	if err != nil {
+		return nil, err
+	}
+	if a == nil {
+		return logical.ErrorResponse("This account does not exists"), nil
+	}
+	// Lookup cache
+	cacheKey, err := getCacheKey(r, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache key: %v", err)
+	}
+
+	var cert *certificate.Resource
+
+	cert, err = signCertFromACMEProvider(ctx, b.Logger(), req, a, names, csr)
+	if err != nil {
+		return logical.ErrorResponse("Failed to validate certificate signing request."), err
+	}
+	// Save the cert in the cache for the next request
+	if !r.DisableCache {
+		err = b.cache.Create(ctx, req.Storage, r, cacheKey, cert)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	s, err := b.getSecret(path, cacheKey, cert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the secret: %v", err)
+	}
+
+	return s, nil
 }
 
 func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -92,6 +193,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		b.Logger().Debug("Contacting the ACME provider to get a new certificate")
 		cert, err = getCertFromACMEProvider(ctx, b.Logger(), req, a, names)
 		if err != nil {
+			b.Logger().Error("Error: %+v", err)
 			return logical.ErrorResponse("Failed to validate certificate signing request."), err
 		}
 		// Save the cert in the cache for the next request
@@ -164,8 +266,11 @@ func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Reso
 }
 
 func getNames(data *framework.FieldData) []string {
-	altNames := data.Get("alternative_names").([]string)
+	log.Printf("Getting alt_names")
+	altNames := data.Get("alt_names").([]string)
+	log.Printf("Make names")
 	names := make([]string, len(altNames)+1)
+	log.Printf("Get CN")
 	names[0] = data.Get("common_name").(string)
 	for i, n := range altNames {
 		names[i+1] = n
