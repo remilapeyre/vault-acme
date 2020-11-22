@@ -2,12 +2,15 @@ package acme
 
 import (
 	"context"
+	"crypto/x509"
+	"fmt"
 	"os"
 
-	"github.com/go-acme/lego/v3/certificate"
-	"github.com/go-acme/lego/v3/challenge/dns01"
-	"github.com/go-acme/lego/v3/lego"
-	"github.com/go-acme/lego/v3/providers/dns"
+	"encoding/pem"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/providers/dns"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -20,6 +23,7 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 
 	err = setupChallengeProviders(ctx, logger, client, a, req)
 	if err != nil {
+		logger.Error("Failed to setup challenge provider")
 		return nil, err
 	}
 
@@ -31,10 +35,40 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 	return client.Certificate.Obtain(request)
 }
 
+func signCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logical.Request, a *account, names []string, csrBytes []byte) (*certificate.Resource, error) {
+	client, err := a.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	err = setupChallengeProviders(ctx, logger, client, a, req)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug("Creating cert request")
+	csrBlock, _ := pem.Decode(csrBytes)
+
+	if csrBlock == nil || csrBlock.Type != "CERTIFICATE REQUEST" {
+		return nil, fmt.Errorf("failed to decode PEM block containing certificate request")
+	}
+
+	csr, err := x509.ParseCertificateRequest(csrBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug("obtaining cert")
+	return client.Certificate.ObtainForCSR(certificate.ObtainForCSRRequest{
+		CSR:    csr,
+		Bundle: true,
+	})
+}
+
 func setupChallengeProviders(ctx context.Context, logger log.Logger, client *lego.Client, a *account, req *logical.Request) error {
 	// DNS-01
 	if a.Provider != "" {
-		provider, err := dns.NewDNSChallengeProviderByName(a.Provider, a.ProviderConfiguration)
+		provider, err := dns.NewDNSChallengeProviderByName(a.Provider)
 		if err != nil {
 			return err
 		}
