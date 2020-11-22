@@ -8,8 +8,8 @@ import (
 	"time"
 	"log"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/certificate"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -119,6 +119,7 @@ func (b *backend) certSign(ctx context.Context, req *logical.Request, data *fram
 
 	cert, err = signCertFromACMEProvider(ctx, b.Logger(), req, a, names, csr)
 	if err != nil {
+		b.Logger().Error("Failed to validate certificate signing request: "+ err.Error())
 		return logical.ErrorResponse("Failed to validate certificate signing request."), err
 	}
 	// Save the cert in the cache for the next request
@@ -193,7 +194,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		b.Logger().Debug("Contacting the ACME provider to get a new certificate")
 		cert, err = getCertFromACMEProvider(ctx, b.Logger(), req, a, names)
 		if err != nil {
-			b.Logger().Error("Error: %+v", err)
+			b.Logger().Debug( "Error: " + err.Error())
 			return logical.ErrorResponse("Failed to validate certificate signing request."), err
 		}
 		// Save the cert in the cache for the next request
