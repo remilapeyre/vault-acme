@@ -213,10 +213,8 @@ func TestNoChallenge(t *testing.T) {
 	if !resp.IsError() {
 		t.Fatalf("Did not get error")
 	}
-	expected := "Failed to validate certificate signing request."
-	if resp.Error().Error() != expected {
-		t.Fatalf("Was expecting '%s' but got '%s'", expected, resp.Error().Error())
-	}
+	expected := "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: could not determine solvers\n"
+	require.Equal(t, expected, resp.Error().Error())
 }
 
 func TestHTTP01Challenge(t *testing.T) {

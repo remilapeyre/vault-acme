@@ -62,7 +62,9 @@ func TestExplicitProviderConfiguration(t *testing.T) {
 	}
 	resp, err := b.HandleRequest(context.Background(), req)
 	require.Error(t, err, "fork/exec /dev/null: permission denied")
-	require.Equal(t, resp.Data, map[string]interface{}{"error": "Failed to validate certificate signing request."})
+	require.Equal(t, resp.Data, map[string]interface{}{
+		"error": "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: error presenting token: fork/exec /dev/null: permission denied\n",
+	})
 }
 
 func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage) (*logical.Response, *logical.Response) {

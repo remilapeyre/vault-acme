@@ -92,7 +92,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		b.Logger().Debug("Contacting the ACME provider to get a new certificate")
 		cert, err = getCertFromACMEProvider(ctx, b.Logger(), req, a, names)
 		if err != nil {
-			return logical.ErrorResponse("Failed to validate certificate signing request."), err
+			return logical.ErrorResponse("Failed to validate certificate signing request: %s", err), err
 		}
 		// Save the cert in the cache for the next request
 		if !r.DisableCache {
