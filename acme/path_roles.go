@@ -8,6 +8,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+func pathListRoles(b *backend) *framework.Path {
+	return &framework.Path{
+		Pattern: "roles/?$",
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.ListOperation: b.roleList,
+		},
+	}
+}
+
 func pathRoles(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("role"),
@@ -90,6 +99,15 @@ func (b *backend) roleRead(ctx context.Context, req *logical.Request, data *fram
 
 func (b *backend) roleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	return nil, req.Storage.Delete(ctx, req.Path)
+}
+
+func (b *backend) roleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	entries, err := req.Storage.List(ctx, "roles/")
+	if err != nil {
+		return nil, err
+	}
+
+	return logical.ListResponse(entries), nil
 }
 
 type role struct {

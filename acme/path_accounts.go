@@ -19,6 +19,15 @@ var keyTypes = []interface{}{
 	"RSA8192",
 }
 
+func pathListAccounts(b *backend) *framework.Path {
+	return &framework.Path{
+		Pattern: "accounts/?$",
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.ListOperation: b.accountList,
+		},
+	}
+}
+
 func pathAccounts(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "accounts/" + framework.GenericNameRegex("account"),
@@ -224,4 +233,13 @@ func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data 
 	err = req.Storage.Delete(ctx, req.Path)
 
 	return nil, err
+}
+
+func (b *backend) accountList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	entries, err := req.Storage.List(ctx, "accounts/")
+	if err != nil {
+		return nil, err
+	}
+
+	return logical.ListResponse(entries), nil
 }
