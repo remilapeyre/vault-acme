@@ -19,6 +19,7 @@ require (
 	github.com/remilapeyre/vault-acme/acme/sidecar v0.0.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.6.1
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 )
 
 replace github.com/remilapeyre/vault-acme/acme/sidecar v0.0.0 => ./acme/sidecar

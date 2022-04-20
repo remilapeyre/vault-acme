@@ -24,15 +24,15 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 		Secrets: []*framework.Secret{
 			secretCert(&b),
 		},
-		Paths: []*framework.Path{
-			pathListAccounts(&b),
+		Paths: framework.PathAppend(
 			pathAccounts(&b),
-			pathListRoles(&b),
 			pathRoles(&b),
-			pathCerts(&b),
-			pathChallenges(&b),
-			pathCache(&b),
-		},
+			[]*framework.Path{
+				pathCerts(&b),
+				pathChallenges(&b),
+				pathCache(&b),
+			},
+		),
 	}
 
 	if err := b.Setup(ctx, conf); err != nil {

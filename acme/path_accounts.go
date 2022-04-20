@@ -19,66 +19,65 @@ var keyTypes = []interface{}{
 	"RSA8192",
 }
 
-func pathListAccounts(b *backend) *framework.Path {
-	return &framework.Path{
-		Pattern: "accounts/?$",
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ListOperation: b.accountList,
-		},
-	}
-}
-
-func pathAccounts(b *backend) *framework.Path {
-	return &framework.Path{
-		Pattern: "accounts/" + framework.GenericNameRegex("account"),
-		Fields: map[string]*framework.FieldSchema{
-			"account": {
-				Type:     framework.TypeString,
-				Required: true,
-			},
-			"server_url": {
-				Type: framework.TypeString,
-				// Required is only used in the documentation for now
-				Required: true,
-			},
-			"terms_of_service_agreed": {
-				Type:    framework.TypeBool,
-				Default: false,
-			},
-			"key_type": {
-				Type:          framework.TypeString,
-				Default:       "EC256",
-				AllowedValues: keyTypes,
-			},
-			// TODO(remi): We should have a list of those so we can request certs
-			// for domains registred to different providers
-			"provider": {
-				Type: framework.TypeString,
-			},
-			"provider_configuration": {
-				Type: framework.TypeKVPairs,
-			},
-			"enable_http_01": {
-				Type: framework.TypeBool,
-			},
-			"enable_tls_alpn_01": {
-				Type: framework.TypeBool,
-			},
-			"ignore_dns_propagation": {
-				Type:    framework.TypeBool,
-				Default: false,
-			},
-			"contact": {
-				Type:     framework.TypeString,
-				Required: true,
+func pathAccounts(b *backend) []*framework.Path {
+	return []*framework.Path{
+		{
+			Pattern: "accounts/?$",
+			Callbacks: map[logical.Operation]framework.OperationFunc{
+				logical.ListOperation: b.accountList,
 			},
 		},
-		ExistenceCheck: b.pathExistenceCheck,
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.accountWrite,
-			logical.ReadOperation:   b.accountRead,
-			logical.UpdateOperation: b.accountWrite,
-			logical.DeleteOperation: b.accountDelete,
+		{
+			Pattern: "accounts/" + framework.GenericNameRegex("account"),
+			Fields: map[string]*framework.FieldSchema{
+				"account": {
+					Type:     framework.TypeString,
+					Required: true,
+				},
+				"server_url": {
+					Type: framework.TypeString,
+					// Required is only used in the documentation for now
+					Required: true,
+				},
+				"terms_of_service_agreed": {
+					Type:    framework.TypeBool,
+					Default: false,
+				},
+				"key_type": {
+					Type:          framework.TypeString,
+					Default:       "EC256",
+					AllowedValues: keyTypes,
+				},
+				// TODO(remi): We should have a list of those so we can request certs
+				// for domains registred to different providers
+				"provider": {
+					Type: framework.TypeString,
+				},
+				"provider_configuration": {
+					Type: framework.TypeKVPairs,
+				},
+				"enable_http_01": {
+					Type: framework.TypeBool,
+				},
+				"enable_tls_alpn_01": {
+					Type: framework.TypeBool,
+				},
+				"ignore_dns_propagation": {
+					Type:    framework.TypeBool,
+					Default: false,
+				},
+				"contact": {
+					Type:     framework.TypeString,
+					Required: true,
+				},
+			},
+			ExistenceCheck: b.pathExistenceCheck,
+			Callbacks: map[logical.Operation]framework.OperationFunc{
+				logical.CreateOperation: b.accountWrite,
+				logical.ReadOperation:   b.accountRead,
+				logical.UpdateOperation: b.accountWrite,
+				logical.DeleteOperation: b.accountDelete,
+			},
 		},
 	}
 }
