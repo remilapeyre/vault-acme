@@ -151,7 +151,7 @@ $ vault write acme/roles/lenstra.fr \
         allowed_domains=lenstra.fr \
         allow_bare_domains=false \
         allow_subdomains=true
-Success! Data written to: pki/roles/lenstra.fr
+Success! Data written to: acme/roles/lenstra.fr
 ```
 
 #### Issue Certificates
@@ -210,7 +210,7 @@ role configuration. Here we see the dynamically generated private key and
 certificate.
 
 <!-- TODO(remi): Write an example for a policy that does this -->
-Using ACLs, it is possible to restrict using the pki backend such that trusted
+Using ACLs, it is possible to restrict using the acme backend such that trusted
 operators can manage the role definitions, and both users and applications are
 restricted in the credentials they are allowed to read.
 

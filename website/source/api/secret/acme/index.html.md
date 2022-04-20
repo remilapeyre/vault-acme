@@ -20,9 +20,11 @@ update your API calls accordingly.
 ## Table of Contents
 
 * [Create or update ACME account](#create-or-update-acme-account)
+* [List ACME accounts](#list-acme-accounts)
 * [Read ACME account](#read-acme-account)
 * [Delete ACME account](#delete-acme-account)
 * [Create/Update Role](#create-update-role)
+* [List Roles](#list-roles)
 * [Read Role](#read-role)
 * [Delete Role](#delete-role)
 * [Generate Certificate](#generate-certificate)
@@ -52,6 +54,15 @@ This endpoint register an ACME account with the provided ACME CA.
 - `enable_http_01` `(bool: false)` - Whether to activate the HTTP-01 challenge.
 - `enable_tls_alpn_01` `(bool: false)` - Whether to activate the TLS-ALPN-01 challenge.
 - `ignore_dns_propagation` `(bool: false)` - Do not wait until the DNS updates have been propagated to all DNS servers. Only relevent for DNS-01 challenges.
+
+
+## List ACME accounts
+
+This endpoint lists the available ACME accounts.
+
+| Method | Path             |
+| :----- | :--------------- |
+| `LIST` | `/acme/accounts` |
 
 ## Read ACME account
 
@@ -87,6 +98,14 @@ This endpoint creates or updates a role definition.
 - `allow_subdomains` `(bool: false)` - Whether to accept a request for a certificate containiing a subdomain of an allowed domain.
 - `disable_cache` `(bool: false)` - Whether to disable the cache.
 - `cache_for_ratio` `(int: 70)` - For how long a cached cert should be used, e.g. a value of 70 means that a cached certificate will be used until 70% of its lifetime will be reached, then a new certificate will be requested.
+
+## List Roles
+
+This endpoint lists the role definitions.
+
+| Method | Path          |
+| :----- | :------------ |
+| `LIST` | `/acme/roles` |
 
 ## Read Role
 

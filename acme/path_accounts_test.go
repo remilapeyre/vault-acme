@@ -145,3 +145,33 @@ func TestDeleteAccount(t *testing.T) {
 	req.Operation = logical.ReadOperation
 	makeRequest(t, b, req, "This account does not exists")
 }
+
+func TestListAccounts(t *testing.T) {
+	config, b := getTestConfig(t)
+
+	listReq := &logical.Request{
+		Operation: logical.ListOperation,
+		Path:      "accounts",
+		Storage:   config.StorageView,
+	}
+	listResp := makeRequest(t, b, listReq, "")
+	require.Equal(t, map[string]interface{}{}, listResp.Data)
+
+	createReq := &logical.Request{
+		Operation: logical.CreateOperation,
+		Path:      "accounts/lenstra",
+		Storage:   config.StorageView,
+		Data: map[string]interface{}{
+			"server_url":              serverURL,
+			"contact":                 "remi@lenstra.fr",
+			"terms_of_service_agreed": true,
+			"provider":                "exec",
+		},
+	}
+	makeRequest(t, b, createReq, "")
+
+	listResp = makeRequest(t, b, listReq, "")
+	require.Equal(t, map[string]interface{}{
+		"keys": []string{"lenstra"},
+	}, listResp.Data)
+}

@@ -8,36 +8,44 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-func pathRoles(b *backend) *framework.Path {
-	return &framework.Path{
-		Pattern: "roles/" + framework.GenericNameRegex("role"),
-		Fields: map[string]*framework.FieldSchema{
-			"account": {
-				Type:     framework.TypeString,
-				Required: true,
-			},
-			"allowed_domains": {
-				Type: framework.TypeCommaStringSlice,
-			},
-			"allow_bare_domains": {
-				Type: framework.TypeBool,
-			},
-			"allow_subdomains": {
-				Type: framework.TypeBool,
-			},
-			"disable_cache": {
-				Type: framework.TypeBool,
-			},
-			"cache_for_ratio": {
-				Type:    framework.TypeInt,
-				Default: 70,
+func pathRoles(b *backend) []*framework.Path {
+	return []*framework.Path{
+		{
+			Pattern: "roles/?$",
+			Callbacks: map[logical.Operation]framework.OperationFunc{
+				logical.ListOperation: b.roleList,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.roleCreateOrUpdate,
-			logical.ReadOperation:   b.roleRead,
-			logical.UpdateOperation: b.roleCreateOrUpdate,
-			logical.DeleteOperation: b.roleDelete,
+		{
+			Pattern: "roles/" + framework.GenericNameRegex("role"),
+			Fields: map[string]*framework.FieldSchema{
+				"account": {
+					Type:     framework.TypeString,
+					Required: true,
+				},
+				"allowed_domains": {
+					Type: framework.TypeCommaStringSlice,
+				},
+				"allow_bare_domains": {
+					Type: framework.TypeBool,
+				},
+				"allow_subdomains": {
+					Type: framework.TypeBool,
+				},
+				"disable_cache": {
+					Type: framework.TypeBool,
+				},
+				"cache_for_ratio": {
+					Type:    framework.TypeInt,
+					Default: 70,
+				},
+			},
+			Callbacks: map[logical.Operation]framework.OperationFunc{
+				logical.CreateOperation: b.roleCreateOrUpdate,
+				logical.ReadOperation:   b.roleRead,
+				logical.UpdateOperation: b.roleCreateOrUpdate,
+				logical.DeleteOperation: b.roleDelete,
+			},
 		},
 	}
 }
@@ -90,6 +98,15 @@ func (b *backend) roleRead(ctx context.Context, req *logical.Request, data *fram
 
 func (b *backend) roleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	return nil, req.Storage.Delete(ctx, req.Path)
+}
+
+func (b *backend) roleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	entries, err := req.Storage.List(ctx, "roles/")
+	if err != nil {
+		return nil, err
+	}
+
+	return logical.ListResponse(entries), nil
 }
 
 type role struct {
