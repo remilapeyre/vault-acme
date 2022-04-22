@@ -11,14 +11,14 @@ func TestAccounts(t *testing.T) {
 	config, b := getTestConfig(t)
 
 	data := map[string]interface{}{
-		"server_url":              serverURL,
+		"server_url":              "https://localhost:14000/dir",
 		"contact":                 "remi@lenstra.fr",
 		"terms_of_service_agreed": true,
 		"provider":                "exec",
 	}
 	expected := map[string]interface{}{
 		"contact":                 "remi@lenstra.fr",
-		"server_url":              serverURL,
+		"server_url":              "https://localhost:14000/dir",
 		"terms_of_service_agreed": true,
 		"provider":                "exec",
 		"provider_configuration":  map[string]string{},
@@ -108,7 +108,7 @@ func TestUpdateAccount(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "rem@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
@@ -130,7 +130,7 @@ func TestDeleteAccount(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
@@ -162,7 +162,7 @@ func TestListAccounts(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",

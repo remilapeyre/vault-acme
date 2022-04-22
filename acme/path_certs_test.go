@@ -39,7 +39,7 @@ func TestExplicitProviderConfiguration(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
@@ -201,14 +201,14 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	if err == nil {
 		t.Fatal("Was expecting error but got none.")
 	}
-	if err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+	if err.Error() != "Get \"https://example.com\": x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" && err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
 		t.Fatalf("Got wrong error: %s", err.Error())
 	}
 
 	HTTPResp, err := http.Get("https://sentry.lenstra.fr")
 	if err != nil {
 		// This is expected as the intermediate test cert may not be installed
-		if err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+		if err.Error() != "Get \"https://sentry.lenstra.fr\": x509: certificate signed by unknown authority" && err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
 			t.Fatalf("%s", err.Error())
 		}
 	}

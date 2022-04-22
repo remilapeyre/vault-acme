@@ -23,7 +23,7 @@ func TestListRoles(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",

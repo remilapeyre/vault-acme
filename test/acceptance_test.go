@@ -7,14 +7,73 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVault(t *testing.T) {
+	if err := os.Setenv("LEGO_TEST_NAMESERVER", "127.0.0.1:8053"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("LEGO_CA_CERTIFICATES", "./certs/pebble.minica.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("PEBBLE_VA_NOSLEEP", "1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("EXEC_PROPAGATION_TIMEOUT", "5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Setenv("EXEC_PATH", "./test_dns.sh"); err != nil {
+		t.Fatal(err)
+	}
+
+	peeble := exec.Command("pebble", "-dnsserver", "127.0.0.1:8053", "-config", "../test/config/pebble-config.json")
+	peeble.Stdout = os.Stdout
+	peeble.Stderr = os.Stderr
+	if err := peeble.Start(); err != nil {
+		t.Fatalf("failed to start pebble: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := peeble.Process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		peeble.Process.Wait()
+	})
+
+	challtestsrv := exec.Command("pebble-challtestsrv", "-http01", "", "-https01", "", "-tlsalpn01", "")
+	challtestsrv.Stdout = os.Stdout
+	challtestsrv.Stderr = os.Stderr
+	if err := challtestsrv.Start(); err != nil {
+		t.Fatalf("failed to start pebble-challtestsrv: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := challtestsrv.Process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		challtestsrv.Process.Wait()
+	})
+
+	vault := exec.Command("vault", "server", "-dev", "-config", "./vault.hcl", "-dev-root-token-id", "foo")
+	vault.Stdout = os.Stdout
+	vault.Stderr = os.Stderr
+	if err := vault.Start(); err != nil {
+		t.Fatalf("failed to start vault: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := vault.Process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		vault.Process.Wait()
+	})
+	time.Sleep(2*time.Second)
+
 	config := api.DefaultConfig()
 	config.Address = "http://127.0.0.1:8200"
 	client, err := api.NewClient(config)
