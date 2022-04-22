@@ -34,25 +34,20 @@ you can mount the plugin like any other: `vault secrets enable -path acme -plugi
 
 ## Tests
 
-Unit tests are run against [Pebble](https://github.com/letsencrypt/pebble):
+The unit tests will use the `pebble` ACME test server and `pebble-challtestsrv`.
+They can be downloaded at https://github.com/letsencrypt/pebble and must be
+present in `$PATH`.
+
+The unit tests can be run with:
 
 ```bash
-$ export PEBBLE_VA_NOSLEEP=1
-$ pebble -dnsserver 127.0.0.1:8053 &
-$ pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
 $ make test
 ```
 
-and acceptance tests both Pebble and a running Vault server:
+The acceptance tests needs Vault in addition to `pebble` and `pebble-challtestsrv`.
+
+When `vault` is present in `$PATH` the acceptance tests can be run with:
 
 ```bash
-$ export LEGO_TEST_NAMESERVER=127.0.0.1:8053
-$ export LEGO_CA_CERTIFICATES=$PWD/test/certs/pebble.minica.pem
-$ export PEBBLE_VA_NOSLEEP=1
-$ export EXEC_PROPAGATION_TIMEOUT=5
-$ export EXEC_PATH=$PWD/test/test_dns.sh
-$ pebble -dnsserver 127.0.0.1:8053 &
-$ pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
-$ vault server -dev -config ./test/vault.hcl -dev-root-token-id foo &
 $ make testacc
 ```

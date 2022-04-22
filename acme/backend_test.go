@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/remilapeyre/vault-acme/acme/sidecar"
 	"github.com/stretchr/testify/require"
 )
-
-var serverURL string
 
 func TestValidateNames(t *testing.T) {
 	config := logical.TestBackendConfig()
@@ -102,8 +102,6 @@ func TestValidateNames(t *testing.T) {
 }
 
 func getTestConfig(t *testing.T) (*logical.BackendConfig, logical.Backend) {
-	serverURL = getEnv("TEST_SERVER_URL", "https://localhost:14000/dir")
-
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +118,36 @@ func getTestConfig(t *testing.T) (*logical.BackendConfig, logical.Backend) {
 	if err = os.Setenv("LEGO_CA_CERTIFICATES", wd+"/../test/certs/pebble.minica.pem"); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Setenv("PEBBLE_VA_NOSLEEP", "1"); err != nil {
+		t.Fatal(err)
+	}
+
+	peeble := exec.Command("pebble", "-dnsserver", "127.0.0.1:8053", "-config", "../test/config/pebble-config.json")
+	peeble.Stdout = os.Stdout
+	peeble.Stderr = os.Stderr
+	if err := peeble.Start(); err != nil {
+		t.Fatalf("failed to start pebble: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := peeble.Process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		peeble.Process.Wait()
+	})
+
+	challtestsrv := exec.Command("pebble-challtestsrv", "-http01", "", "-https01", "", "-tlsalpn01", "")
+	challtestsrv.Stdout = os.Stdout
+	challtestsrv.Stderr = os.Stderr
+	if err := challtestsrv.Start(); err != nil {
+		t.Fatalf("failed to start pebble-challtestsrv: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := challtestsrv.Process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		challtestsrv.Process.Wait()
+	})
+	time.Sleep(1 * time.Second)
 
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
@@ -137,7 +165,7 @@ func createAccount(t *testing.T, b logical.Backend, storage logical.Storage) {
 		Path:      "accounts/lenstra",
 		Storage:   storage,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
@@ -182,7 +210,7 @@ func TestNoChallenge(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 		},
@@ -225,7 +253,7 @@ func TestHTTP01Challenge(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"enable_http_01":          true,
@@ -260,7 +288,7 @@ func TestTLSALPN01Challenge(t *testing.T) {
 		Path:      "accounts/lenstra",
 		Storage:   config.StorageView,
 		Data: map[string]interface{}{
-			"server_url":              serverURL,
+			"server_url":              "https://localhost:14000/dir",
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"enable_tls_alpn_01":      true,

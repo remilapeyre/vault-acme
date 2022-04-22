@@ -6,10 +6,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up Go 1.16
+    - name: Set up Go 1.18
       uses: actions/setup-go@v1
       with:
-        go-version: 1.16
+        go-version: 1.18
       id: go
 
     - name: Check out code into the Go module directory
@@ -20,28 +20,13 @@ jobs:
         GO111MODULE=off go get -u github.com/letsencrypt/pebble/...
 
     - name: Run unit tests
-      env:
-        PEBBLE_VA_NOSLEEP: 1
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin
-        pebble -dnsserver 127.0.0.1:8053 &
-        pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
         make test
-        kill %1 %2
 
     - name: Run acceptance tests
-      env:
-        PEBBLE_VA_NOSLEEP: 1
-        LEGO_TEST_NAMESERVER: 127.0.0.1:8053
-        EXEC_PROPAGATION_TIMEOUT: 5
       run: |
-        export LEGO_CA_CERTIFICATES=$PWD/test/certs/pebble.minica.pem
-        export EXEC_PATH=$PWD/test/test_dns.sh
-        export PATH=$PATH:$(go env GOPATH)/bin
         curl -sLo vault.zip https://releases.hashicorp.com/vault/1.3.2/vault_1.3.2_linux_amd64.zip
         unzip vault.zip
         sudo mv vault /usr/local/bin/vault
-        pebble -dnsserver 127.0.0.1:8053 &
-        pebble-challtestsrv -http01 "" -https01 "" -tlsalpn01 "" &
-        vault server -dev -config ./test/vault.hcl -dev-root-token-id foo &
         make testacc

@@ -1,1 +1,1 @@
-plugin_directory = "./build"
+plugin_directory = "./../build"
