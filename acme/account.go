@@ -22,6 +22,7 @@ type account struct {
 	EnableHTTP01          bool
 	EnableTLSALPN01       bool
 	TermsOfServiceAgreed  bool
+	DNSResolvers          []string
 	IgnoreDNSPropagation  bool
 }
 
@@ -90,6 +91,11 @@ func getAccount(ctx context.Context, storage logical.Storage, path string) (*acc
 		a.IgnoreDNSPropagation = ignoreDNSPropagation.(bool)
 	}
 
+	a.DNSResolvers = make([]string, len(d["dns_resolvers"].([]interface{})))
+	for i, resolver := range d["dns_resolvers"].([]interface{}) {
+		a.DNSResolvers[i] = resolver.(string)
+	}
+
 	return a, nil
 }
 
@@ -111,6 +117,7 @@ func (a *account) save(ctx context.Context, storage logical.Storage, path string
 		"provider_configuration":  a.ProviderConfiguration,
 		"enable_http_01":          a.EnableHTTP01,
 		"enable_tls_alpn_01":      a.EnableTLSALPN01,
+		"dns_resolvers":           a.DNSResolvers,
 		"ignore_dns_propagation":  a.IgnoreDNSPropagation,
 	})
 	if err != nil {

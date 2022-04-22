@@ -62,6 +62,9 @@ func pathAccounts(b *backend) []*framework.Path {
 				"enable_tls_alpn_01": {
 					Type: framework.TypeBool,
 				},
+				"dns_resolvers": {
+					Type: framework.TypeStringSlice,
+				},
 				"ignore_dns_propagation": {
 					Type:    framework.TypeBool,
 					Default: false,
@@ -110,6 +113,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	providerConfiguration := data.Get("provider_configuration").(map[string]string)
 	enableHTTP01 := data.Get("enable_http_01").(bool)
 	enableTLSALPN01 := data.Get("enable_tls_alpn_01").(bool)
+	dnsResolvers := data.Get("dns_resolvers").([]string)
 	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
 
 	var update bool
@@ -150,6 +154,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	user.EnableHTTP01 = enableHTTP01
 	user.EnableTLSALPN01 = enableTLSALPN01
 	user.TermsOfServiceAgreed = termsOfServiceAgreed
+	user.DNSResolvers = dnsResolvers
 	user.IgnoreDNSPropagation = ignoreDNSPropagation
 
 	client, err := user.getClient()
@@ -206,6 +211,7 @@ func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *f
 			"provider_configuration":  a.ProviderConfiguration,
 			"enable_http_01":          a.EnableHTTP01,
 			"enable_tls_alpn_01":      a.EnableTLSALPN01,
+			"dns_resolvers":           a.DNSResolvers,
 			"ignore_dns_propagation":  a.IgnoreDNSPropagation,
 		},
 	}, nil

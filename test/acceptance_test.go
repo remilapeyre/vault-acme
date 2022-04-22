@@ -18,9 +18,6 @@ import (
 )
 
 func TestVault(t *testing.T) {
-	if err := os.Setenv("LEGO_TEST_NAMESERVER", "127.0.0.1:8053"); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Setenv("LEGO_CA_CERTIFICATES", "./certs/pebble.minica.pem"); err != nil {
 		t.Fatal(err)
 	}
@@ -123,6 +120,8 @@ func TestVault(t *testing.T) {
 			"server_url":              "https://localhost:14000/dir",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
+			"dns_resolvers":           []string{"127.0.0.1:8053"},
+			"ignore_dns_propagation":  true,
 		},
 	)
 	require.NoError(t, err)

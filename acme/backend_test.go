@@ -106,9 +106,6 @@ func getTestConfig(t *testing.T) (*logical.BackendConfig, logical.Backend) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = os.Setenv("LEGO_TEST_NAMESERVER", "127.0.0.1:8053"); err != nil {
-		t.Fatal(err)
-	}
 	if err = os.Setenv("EXEC_PROPAGATION_TIMEOUT", "5"); err != nil {
 		t.Fatal(err)
 	}
@@ -169,6 +166,8 @@ func createAccount(t *testing.T, b logical.Backend, storage logical.Storage) {
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
+			"dns_resolvers":           []string{"127.0.0.1:8053"},
+			"ignore_dns_propagation":  true,
 		},
 	}
 	makeRequest(t, b, req, "")
@@ -320,7 +319,12 @@ func TestRoles(t *testing.T) {
 	createAccount(t, b, config.StorageView)
 
 	// Test creating roles
-	testCases := []testCase{
+	testCases := []struct {
+		Path             string
+		RequestData      map[string]interface{}
+		ExpectedResponse map[string]interface{}
+		Error            string
+	}{
 		{
 			RequestData:      map[string]interface{}{"account": "lenstra"},
 			ExpectedResponse: map[string]interface{}{"account": "lenstra", "allow_bare_domains": false, "allow_subdomains": false, "allowed_domains": []string{}, "cache_for_ratio": 70, "disable_cache": false},
@@ -402,6 +406,8 @@ func TestRoles(t *testing.T) {
 }
 
 func makeRequest(t *testing.T, b logical.Backend, req *logical.Request, expectedError string) *logical.Response {
+	t.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatalf("failed to make request:\nreq:%#v\nresp:%#v\nerr:%s", req, resp, err)
@@ -419,11 +425,4 @@ func makeRequest(t *testing.T, b logical.Backend, req *logical.Request, expected
 		}
 	}
 	return resp
-}
-
-type testCase struct {
-	Path             string
-	RequestData      map[string]interface{}
-	ExpectedResponse map[string]interface{}
-	Error            string
 }

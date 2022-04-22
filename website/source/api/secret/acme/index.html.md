@@ -53,7 +53,8 @@ This endpoint register an ACME account with the provided ACME CA.
 - `provider_configuration` `(map of strings: <optional>)` - The configuration to use for the DNS provider when not using environment variables.
 - `enable_http_01` `(bool: false)` - Whether to activate the HTTP-01 challenge.
 - `enable_tls_alpn_01` `(bool: false)` - Whether to activate the TLS-ALPN-01 challenge.
-- `ignore_dns_propagation` `(bool: false)` - Do not wait until the DNS updates have been propagated to all DNS servers. Only relevent for DNS-01 challenges.
+- `dns_resolver` `(list of strings: <optional>)` - The DNS resolvers to use to check for the propagation of the ACME challenge. If not set it will default to the system DNS. Only relevant for DNS-01 challenges.
+- `ignore_dns_propagation` `(bool: false)` - Do not wait until the DNS updates have been propagated to all DNS servers. Only relevant for DNS-01 challenges.
 
 
 ## List ACME accounts

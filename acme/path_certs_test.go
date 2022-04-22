@@ -43,6 +43,7 @@ func TestExplicitProviderConfiguration(t *testing.T) {
 			"contact":                 "remi@lenstra.fr",
 			"terms_of_service_agreed": true,
 			"provider":                "exec",
+			"dns_resolvers":           []string{"127.0.0.1:8053"},
 			"provider_configuration": map[string]string{
 				// We use a bad configuration on purpose so we get a failure
 				// when requesting a certificate instead of the success we got

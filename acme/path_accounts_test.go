@@ -15,6 +15,7 @@ func TestAccounts(t *testing.T) {
 		"contact":                 "remi@lenstra.fr",
 		"terms_of_service_agreed": true,
 		"provider":                "exec",
+		"dns_resolvers":           []string{"127.0.0.1:8053"},
 	}
 	expected := map[string]interface{}{
 		"contact":                 "remi@lenstra.fr",
@@ -25,6 +26,7 @@ func TestAccounts(t *testing.T) {
 		"key_type":                "EC256",
 		"enable_http_01":          false,
 		"enable_tls_alpn_01":      false,
+		"dns_resolvers":           []string{"127.0.0.1:8053"},
 		"ignore_dns_propagation":  false,
 	}
 
