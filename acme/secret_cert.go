@@ -78,7 +78,7 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 			return nil, err
 		}
 		if a == nil {
-			return nil, fmt.Errorf("Error while revoking certificate: user not found")
+			return nil, fmt.Errorf("error while revoking certificate: user not found")
 		}
 		client, err := a.getClient()
 		if err != nil {

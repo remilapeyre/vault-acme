@@ -158,7 +158,7 @@ func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Reso
 			"cache_key": cacheKey,
 		})
 
-	s.Secret.MaxTTL = notAfter.Sub(time.Now())
+	s.Secret.MaxTTL = time.Until(notAfter)
 
 	return s, nil
 }

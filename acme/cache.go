@@ -110,7 +110,7 @@ func (c *Cache) Read(ctx context.Context, storage logical.Storage, role *role, k
 
 		notAfter := certs[0].NotAfter
 		certTTL := notAfter.Sub(certs[0].NotBefore).Seconds()
-		remaining := notAfter.Sub(time.Now()).Seconds()
+		remaining := time.Until(notAfter).Seconds()
 
 		if remaining < float64(role.CacheForRatio)*certTTL/100 {
 			// We can drop this entry from the cache since it won't be used anymore

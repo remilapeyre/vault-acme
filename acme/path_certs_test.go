@@ -179,7 +179,7 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	go func() {
 		err := server.Serve(tlsListener)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
