@@ -6,6 +6,10 @@ build:
 	@mkdir -p build
 	CGO_ENABLED=0 go build -o build ./...
 
+.PHONY: start
+start:
+	vault server -dev -dev-root-token-id=root -dev-plugin-dir=./build
+
 .PHONY: fmt
 fmt:
 	gofmt -w acme

@@ -69,7 +69,7 @@ func TestVault(t *testing.T) {
 		}
 		vault.Process.Wait()
 	})
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 
 	config := api.DefaultConfig()
 	config.Address = "http://127.0.0.1:8200"

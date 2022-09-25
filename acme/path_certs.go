@@ -145,17 +145,17 @@ func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Reso
 			"domain":      cert.Domain,
 			"url":         cert.CertStableURL,
 			"private_key": string(cert.PrivateKey),
-			"cert":        string(cert.Certificate),
-			"issuer_cert": string(cert.IssuerCertificate),
+			"certificate": string(cert.Certificate),
+			"ca_chain":    string(cert.IssuerCertificate),
 			"not_before":  notBefore.String(),
 			"not_after":   notAfter.String(),
 		},
 		// this will be used when revoking the certificate
 		map[string]interface{}{
-			"account":   accountPath,
-			"cert":      string(cert.Certificate),
-			"url":       cert.CertStableURL,
-			"cache_key": cacheKey,
+			"account":     accountPath,
+			"certificate": string(cert.Certificate),
+			"url":         cert.CertStableURL,
+			"cache_key":   cacheKey,
 		})
 
 	s.Secret.MaxTTL = time.Until(notAfter)

@@ -137,7 +137,7 @@ func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, f
 	}
 
 	// Checking the OCSP status was not working for tests
-	err = client.Certificate.Revoke([]byte(second.Data["cert"].(string)))
+	err = client.Certificate.Revoke([]byte(second.Data["certificate"].(string)))
 	if err == nil {
 		t.Fatalf("Trying to revoke the cert should have failed")
 	}
@@ -161,7 +161,7 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	config.NextProtos = []string{"http/1.1"}
 
 	cert, err := tls.X509KeyPair(
-		[]byte(resp.Data["cert"].(string)),
+		[]byte(resp.Data["certificate"].(string)),
 		[]byte(resp.Data["private_key"].(string)),
 	)
 	if err != nil {

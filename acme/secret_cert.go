@@ -84,7 +84,7 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 		if err != nil {
 			return logical.ErrorResponse("Failed to get LEGO client."), err
 		}
-		cert := req.Secret.InternalData["cert"].(string)
+		cert := req.Secret.InternalData["certificate"].(string)
 		err = client.Certificate.Revoke([]byte(cert))
 		if err != nil {
 			return nil, fmt.Errorf("failed to revoke cert: %v", err)
