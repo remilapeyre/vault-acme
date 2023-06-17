@@ -2,7 +2,6 @@ package acme
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -63,31 +62,6 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 		err = ce.Save(ctx, req.Storage, cacheKey)
 		if err != nil {
 			return nil, err
-		}
-	} else {
-		// If the last user asked for the lease to be terminated we revoke the cert
-		b.Logger().Debug("Removing cached cert", "key", cacheKey)
-		err = b.cache.Delete(ctx, req.Storage, cacheKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to remove cache entry: %v", err)
-		}
-
-		accountPath := req.Secret.InternalData["account"].(string)
-		a, err := getAccount(ctx, req.Storage, accountPath)
-		if err != nil {
-			return nil, err
-		}
-		if a == nil {
-			return nil, fmt.Errorf("error while revoking certificate: user not found")
-		}
-		client, err := a.getClient()
-		if err != nil {
-			return logical.ErrorResponse("Failed to get LEGO client."), err
-		}
-		cert := req.Secret.InternalData["cert"].(string)
-		err = client.Certificate.Revoke([]byte(cert))
-		if err != nil {
-			return nil, fmt.Errorf("failed to revoke cert: %v", err)
 		}
 	}
 

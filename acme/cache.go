@@ -72,6 +72,27 @@ func (ce *CacheEntry) Save(ctx context.Context, storage logical.Storage, key str
 	return storage.Put(ctx, storageEntry)
 }
 
+func (ce *CacheEntry) IsExpired(role *role) (bool, error) {
+	cert := ce.Certificate()
+
+	// We have a certificate, we must now check wether the entry is stale in
+	// which case we can remove it and ask a new certificate.
+	certs, err := certcrypto.ParsePEMBundle(cert.Certificate)
+	if err != nil {
+		return false, err
+	}
+
+	notAfter := certs[0].NotAfter
+	certTTL := notAfter.Sub(certs[0].NotBefore).Seconds()
+	remaining := time.Until(notAfter).Seconds()
+
+	if remaining < float64(role.CacheForRatio)*certTTL/100 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (c *Cache) List(ctx context.Context, storage logical.Storage) ([]string, error) {
 	return storage.List(ctx, cachePrefix)
 }
@@ -81,7 +102,7 @@ func (c *Cache) Create(ctx context.Context, storage logical.Storage, role *role,
 	return ce.Save(ctx, storage, key)
 }
 
-func (c *Cache) Read(ctx context.Context, storage logical.Storage, role *role, key string) (*CacheEntry, error) {
+func (c *Cache) GetCacheEntry(ctx context.Context, storage logical.Storage, key string) (*CacheEntry, error) {
 	storageEntry, err := storage.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -97,22 +118,23 @@ func (c *Cache) Read(ctx context.Context, storage logical.Storage, role *role, k
 		return nil, err
 	}
 
+	return ce, nil
+}
+
+func (c *Cache) Read(ctx context.Context, storage logical.Storage, role *role, key string) (*CacheEntry, error) {
+	ce, err := c.GetCacheEntry(ctx, storage, key)
+	if err != nil {
+		return nil, err
+	}
+
 	// Before returning this entry, we have to make sure it is not stale
 	if role != nil {
-		cert := ce.Certificate()
-
-		// We have a certificate, we must now check wether the entry is stale in
-		// which case we can remove it and ask a new certificate.
-		certs, err := certcrypto.ParsePEMBundle(cert.Certificate)
+		isExpired, err := ce.IsExpired(role)
 		if err != nil {
 			return nil, err
 		}
 
-		notAfter := certs[0].NotAfter
-		certTTL := notAfter.Sub(certs[0].NotBefore).Seconds()
-		remaining := time.Until(notAfter).Seconds()
-
-		if remaining < float64(role.CacheForRatio)*certTTL/100 {
+		if isExpired {
 			// We can drop this entry from the cache since it won't be used anymore
 			err = c.Delete(ctx, storage, key)
 			return nil, err
