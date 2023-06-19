@@ -6,9 +6,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
-	"github.com/go-acme/lego/v3/lego"
-	"github.com/go-acme/lego/v3/registration"
+	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/registration"
 	"github.com/hashicorp/vault/sdk/logical"
+)
+
+const (
+	accountsPrefix = "accounts/"
 )
 
 type account struct {

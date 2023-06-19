@@ -58,11 +58,9 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *fr
 	}
 
 	ce.Users--
-	if ce.Users > 0 {
-		err = ce.Save(ctx, req.Storage, cacheKey)
-		if err != nil {
-			return nil, err
-		}
+	err = ce.Save(ctx, req.Storage, cacheKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/certificate"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -55,7 +55,7 @@ func (b *backend) certCreate(ctx context.Context, req *logical.Request, data *fr
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	path = "accounts/" + r.Account
+	path = accountsPrefix + r.Account
 	a, err := getAccount(ctx, req.Storage, path)
 	if err != nil {
 		return nil, err

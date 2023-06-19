@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/certificate"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -125,6 +125,10 @@ func (c *Cache) Read(ctx context.Context, storage logical.Storage, role *role, k
 	ce, err := c.GetCacheEntry(ctx, storage, key)
 	if err != nil {
 		return nil, err
+	}
+
+	if ce == nil {
+		return nil, nil
 	}
 
 	// Before returning this entry, we have to make sure it is not stale

@@ -3,12 +3,10 @@ package acme
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/errwrap"
-	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -17,7 +15,11 @@ import (
 type backend struct {
 	*framework.Backend
 	tidyStatusLock sync.RWMutex
+	tidyStatus     *tidyStatus
 	lastTidy       time.Time
+	tidyCASGuard   *uint32
+	tidyCancelCAS  *uint32
+	storage        logical.Storage
 	cache          *Cache
 }
 
@@ -39,10 +41,20 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 				pathCerts(&b),
 				pathChallenges(&b),
 				pathCache(&b),
+
+				pathTidy(&b),
+				pathTidyCancel(&b),
+				pathTidyStatus(&b),
 			},
 		),
 		PeriodicFunc: b.periodicFunc,
 	}
+
+	b.tidyCASGuard = new(uint32)
+	b.tidyStatus = &tidyStatus{state: tidyStatusInactive}
+	b.tidyCancelCAS = new(uint32)
+	b.storage = conf.StorageView
+	b.lastTidy = time.Now()
 
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
@@ -52,7 +64,6 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 }
 
 func (b *backend) periodicFunc(ctx context.Context, req *logical.Request) error {
-	// Initiate clean-up of expired SecretID entries
 	if b.System().LocalMount() || !b.System().ReplicationState().HasState(consts.ReplicationPerformanceSecondary|consts.ReplicationPerformanceStandby) {
 		// Check if we should run another tidy...
 		now := time.Now()
@@ -63,84 +74,34 @@ func (b *backend) periodicFunc(ctx context.Context, req *logical.Request) error 
 			return nil
 		}
 
+		// Ensure a tidy isn't already running... If it is, we'll trigger
+		// again when the running one finishes.
+		if !atomic.CompareAndSwapUint32(b.tidyCASGuard, 0, 1) {
+			return nil
+		}
+
 		b.tidyStatusLock.Lock()
 		b.lastTidy = now
 		b.tidyStatusLock.Unlock()
 
-		b.tidyCertificates(ctx, req)
+		// Because the request from the parent storage will be cleared at
+		// some point (and potentially reused) -- due to tidy executing in
+		// a background goroutine -- we need to copy the storage entry off
+		// of the backend instead.
+		backendReq := &logical.Request{
+			Storage: b.storage,
+		}
+
+		b.startTidyOperation(backendReq)
+		return nil
 	}
 	return nil
-}
-
-// TODO: run inside of a goroutine
-// https://github.com/hashicorp/vault/blob/659316cff1e5a437a47447492a2a426c8222354b/builtin/logical/pki/backend.go#L443-L492
-// Deletes / revokes certificate entries that don't have any users
-func (b *backend) tidyCertificates(ctx context.Context, req *logical.Request) (*logical.Response, error) {
-	// As we're (below) modifying the backing storage, we need to ensure
-	// we're not on a standby/secondary node.
-	if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby) ||
-		b.System().ReplicationState().HasState(consts.ReplicationDRSecondary) {
-		return nil, logical.ErrReadOnly
-	}
-	b.cache.Lock()
-	keys, err := b.cache.List(ctx, req.Storage)
-	if err != nil {
-		return logical.ErrorResponse("failed to list cache: %w", err), nil
-	}
-
-	var keyErrors error
-	for _, key := range keys {
-		ceKey := cachePrefix + key
-		ce, err := b.cache.GetCacheEntry(ctx, req.Storage, ceKey)
-		if err != nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: %w", ceKey, err))
-			continue
-		}
-
-		if ce.Users > 0 {
-			continue
-		}
-
-		err = b.cache.Delete(ctx, req.Storage, ceKey)
-		if err != nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to delete cache entry: %w", ceKey, err))
-			continue
-		}
-
-		a, err := getAccount(ctx, req.Storage, ce.Account)
-		if err != nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to get account: %w", ceKey, err))
-			continue
-		}
-		if a == nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: account not found", ceKey))
-			continue
-		}
-		client, err := a.getClient()
-		if err != nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to get lego client: %w", ceKey, err))
-			continue
-		}
-		err = client.Certificate.Revoke(ce.Cert)
-		if err != nil {
-			keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to revoke the certificate: %w", ceKey, err))
-			continue
-		}
-	}
-
-	if keyErrors != nil {
-		b.Logger().Error("failed to tidy keys: %w", keyErrors)
-		return logical.ErrorResponse("failed to tidy keys: %w", keyErrors), nil
-	}
-
-	resp := &logical.Response{}
-	return logical.RespondWithStatusCode(resp, req, http.StatusOK)
 }
 
 func (b *backend) pathExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
 	out, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
-		return false, errwrap.Wrapf("existence check failed: {{err}}", err)
+		return false, fmt.Errorf("existence check failed: %w", err)
 	}
 
 	return out != nil, nil

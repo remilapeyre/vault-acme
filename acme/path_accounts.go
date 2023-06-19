@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/registration"
-	"github.com/hashicorp/errwrap"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/providers/dns"
+	"github.com/go-acme/lego/v4/registration"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -116,6 +116,13 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	dnsResolvers := data.Get("dns_resolvers").([]string)
 	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
 
+	if provider != "" {
+		_, err := dns.NewDNSChallengeProviderByName(provider)
+		if err != nil {
+			return logical.ErrorResponse(fmt.Errorf("failed to find provider: %w", err).Error()), nil
+		}
+	}
+
 	var update bool
 	user, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
@@ -130,7 +137,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 		}
 		privateKey, err := certcrypto.GeneratePrivateKey(keyType)
 		if err != nil {
-			return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
+			return nil, fmt.Errorf("failed to generate account key pair: %w", err)
 		}
 
 		user = &account{
@@ -180,7 +187,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	user.Registration = reg
 
 	if err != nil {
-		return nil, errwrap.Wrapf("Failed to create storage entry: {{err}}", err)
+		return nil, fmt.Errorf("failed to create storage entry: %w", err)
 	}
 
 	b.Logger().Info("Saving account")
@@ -228,11 +235,11 @@ func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data 
 
 	client, err := a.getClient()
 	if err != nil {
-		return nil, errwrap.Wrapf("Failed to instanciate new client: {{err}}", err)
+		return nil, fmt.Errorf("failed to instanciate new client: %s", err)
 	}
 
 	if err = client.Registration.DeleteRegistration(); err != nil {
-		return nil, errwrap.Wrapf("Failed to deactivate registration: {{err}}", err)
+		return nil, fmt.Errorf("failed to deactivate registration: %w", err)
 	}
 
 	err = req.Storage.Delete(ctx, req.Path)
