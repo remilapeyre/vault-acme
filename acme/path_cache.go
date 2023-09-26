@@ -15,9 +15,13 @@ func pathCache(b *backend) *framework.Path {
 				Type: framework.TypeInt,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation:   b.cacheRead,
-			logical.DeleteOperation: b.cacheClear,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.cacheRead,
+			},
+			logical.DeleteOperation: &framework.PathOperation{
+				Callback: b.cacheClear,
+			},
 		},
 	}
 }

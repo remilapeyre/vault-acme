@@ -18,8 +18,10 @@ func pathChallenges(b *backend) *framework.Path {
 			},
 		},
 		ExistenceCheck: b.pathExistenceCheck,
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.challengeHTTP01Read,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.challengeHTTP01Read,
+			},
 		},
 	}
 }

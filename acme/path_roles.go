@@ -12,8 +12,10 @@ func pathRoles(b *backend) []*framework.Path {
 	return []*framework.Path{
 		{
 			Pattern: "roles/?$",
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ListOperation: b.roleList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.roleList,
+				},
 			},
 		},
 		{
@@ -40,12 +42,21 @@ func pathRoles(b *backend) []*framework.Path {
 					Default: 70,
 				},
 			},
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.CreateOperation: b.roleCreateOrUpdate,
-				logical.ReadOperation:   b.roleRead,
-				logical.UpdateOperation: b.roleCreateOrUpdate,
-				logical.DeleteOperation: b.roleDelete,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.CreateOperation: &framework.PathOperation{
+					Callback: b.roleCreateOrUpdate,
+				},
+				logical.ReadOperation: &framework.PathOperation{
+					Callback: b.roleRead,
+				},
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.roleCreateOrUpdate,
+				},
+				logical.DeleteOperation: &framework.PathOperation{
+					Callback: b.roleDelete,
+				},
 			},
+			ExistenceCheck: b.pathExistenceCheck,
 		},
 	}
 }

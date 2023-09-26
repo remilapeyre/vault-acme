@@ -30,8 +30,10 @@ func pathCerts(b *backend) *framework.Path {
 			},
 		},
 		ExistenceCheck: b.pathExistenceCheck,
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.certCreate,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.CreateOperation: &framework.PathOperation{
+				Callback: b.certCreate,
+			},
 		},
 	}
 }

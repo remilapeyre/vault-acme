@@ -23,8 +23,10 @@ func pathAccounts(b *backend) []*framework.Path {
 	return []*framework.Path{
 		{
 			Pattern: "accounts/?$",
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ListOperation: b.accountList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.accountList,
+				},
 			},
 		},
 		{
@@ -75,11 +77,19 @@ func pathAccounts(b *backend) []*framework.Path {
 				},
 			},
 			ExistenceCheck: b.pathExistenceCheck,
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.CreateOperation: b.accountWrite,
-				logical.ReadOperation:   b.accountRead,
-				logical.UpdateOperation: b.accountWrite,
-				logical.DeleteOperation: b.accountDelete,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.CreateOperation: &framework.PathOperation{
+					Callback: b.accountWrite,
+				},
+				logical.ReadOperation: &framework.PathOperation{
+					Callback: b.accountRead,
+				},
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.accountWrite,
+				},
+				logical.DeleteOperation: &framework.PathOperation{
+					Callback: b.accountDelete,
+				},
 			},
 		},
 	}

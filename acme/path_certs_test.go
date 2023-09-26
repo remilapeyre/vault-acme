@@ -3,7 +3,7 @@ package acme
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -90,7 +90,7 @@ func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage
 	second := makeRequest(t, b, certReq, "")
 
 	// Since caching is enabled, we should get the same cert when calling the
-	// endoint twice
+	// endpoint twice
 	require.Equal(t, first.Data, second.Data)
 
 	return first, second
@@ -189,7 +189,6 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		DualStack: true,
 	}
 	http.DefaultTransport.(*http.Transport).DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		if addr == "example.com:443" || addr == "sentry.lenstra.fr:443" {
@@ -202,19 +201,19 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	if err == nil {
 		t.Fatal("Was expecting error but got none.")
 	}
-	if err.Error() != "Get \"https://example.com\": x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" && err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+	if err.Error() != "Get \"https://example.com\": tls: failed to verify certificate: x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" && err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
 		t.Fatalf("Got wrong error: %s", err.Error())
 	}
 
 	HTTPResp, err := http.Get("https://sentry.lenstra.fr")
 	if err != nil {
 		// This is expected as the intermediate test cert may not be installed
-		if err.Error() != "Get \"https://sentry.lenstra.fr\": x509: certificate signed by unknown authority" && err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+		if err.Error() != "Get \"https://sentry.lenstra.fr\": tls: failed to verify certificate: x509: certificate signed by unknown authority" && err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
 			t.Fatalf("%s", err.Error())
 		}
 	}
 	if HTTPResp != nil {
-		body, err := ioutil.ReadAll(HTTPResp.Body)
+		body, err := io.ReadAll(HTTPResp.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
