@@ -26,7 +26,7 @@ func pathCache(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) cacheRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) cacheRead(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.cache.Lock()
 	defer b.cache.Unlock()
 	keys, err := b.cache.List(ctx, req.Storage)
@@ -41,7 +41,7 @@ func (b *backend) cacheRead(ctx context.Context, req *logical.Request, data *fra
 	}, nil
 }
 
-func (b *backend) cacheClear(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) cacheClear(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.cache.Lock()
 	defer b.cache.Unlock()
 	err := b.cache.Clear(ctx, req.Storage)

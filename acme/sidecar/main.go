@@ -96,7 +96,7 @@ func (p http01Provider) Listen(addr string) error {
 	http.Handle("/.well-known/acme-challenge/", handler)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("Failed to create listener: %v", err)
+		return fmt.Errorf("failed to create listener: %w", err)
 	}
 	go http.Serve(listener, nil)
 

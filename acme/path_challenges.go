@@ -26,7 +26,7 @@ func pathChallenges(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) challengeHTTP01Read(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) challengeHTTP01Read(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("Looking up for a token", "path", req.Path)
 	storageEntry, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {

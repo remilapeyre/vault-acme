@@ -86,7 +86,7 @@ func (b *backend) roleCreateOrUpdate(ctx context.Context, req *logical.Request, 
 	return b.roleRead(ctx, req, data)
 }
 
-func (b *backend) roleRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) roleRead(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	r, err := getRole(ctx, req.Storage, req.Path)
 	if err != nil {
 		return nil, err
@@ -107,11 +107,11 @@ func (b *backend) roleRead(ctx context.Context, req *logical.Request, data *fram
 	}, nil
 }
 
-func (b *backend) roleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) roleDelete(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	return nil, req.Storage.Delete(ctx, req.Path)
 }
 
-func (b *backend) roleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) roleList(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	entries, err := req.Storage.List(ctx, "roles/")
 	if err != nil {
 		return nil, err
