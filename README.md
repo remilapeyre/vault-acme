@@ -1,4 +1,5 @@
 # Vault ACME
+[![Run tests](https://github.com/Boostport/vault-acme/actions/workflows/test.yml/badge.svg)](https://github.com/Boostport/vault-acme/actions/workflows/test.yml)
 
 **This plugin has not been properly reviewed and should not be used in production.**
 
@@ -11,7 +12,7 @@ Discussion: https://github.com/hashicorp/vault/issues/4950
 
 ## Download Vault ACME
 
-Binary releases can be downloaded at https://github.com/remilapeyre/vault-acme/releases.
+Binary releases can be downloaded at https://github.com/Boostport/vault-acme/releases.
 
 ## Documentation
 
