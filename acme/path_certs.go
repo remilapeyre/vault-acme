@@ -2,6 +2,7 @@ package acme
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -128,7 +129,10 @@ func getCacheKey(r *role, data *framework.FieldData) (string, error) {
 		return "", fmt.Errorf("failed to marshall data: %v", err)
 	}
 
-	return cachePrefix + string(rolePath) + string(dataPath), nil
+	key := string(rolePath) + string(dataPath)
+	hashedKey := sha256.Sum256([]byte(key))
+
+	return fmt.Sprintf("%s%x", cachePrefix, hashedKey), nil
 }
 
 func (b *backend) getSecret(accountPath, cacheKey string, cert *certificate.Resource) (*logical.Response, error) {
