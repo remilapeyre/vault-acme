@@ -18,13 +18,15 @@ func pathChallenges(b *backend) *framework.Path {
 			},
 		},
 		ExistenceCheck: b.pathExistenceCheck,
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.challengeHTTP01Read,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.challengeHTTP01Read,
+			},
 		},
 	}
 }
 
-func (b *backend) challengeHTTP01Read(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) challengeHTTP01Read(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("Looking up for a token", "path", req.Path)
 	storageEntry, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {

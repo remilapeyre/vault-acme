@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/registration"
-	"github.com/hashicorp/errwrap"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/registration"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -23,8 +22,10 @@ func pathAccounts(b *backend) []*framework.Path {
 	return []*framework.Path{
 		{
 			Pattern: "accounts/?$",
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ListOperation: b.accountList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.accountList,
+				},
 			},
 		},
 		{
@@ -75,11 +76,19 @@ func pathAccounts(b *backend) []*framework.Path {
 				},
 			},
 			ExistenceCheck: b.pathExistenceCheck,
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.CreateOperation: b.accountWrite,
-				logical.ReadOperation:   b.accountRead,
-				logical.UpdateOperation: b.accountWrite,
-				logical.DeleteOperation: b.accountDelete,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.CreateOperation: &framework.PathOperation{
+					Callback: b.accountWrite,
+				},
+				logical.ReadOperation: &framework.PathOperation{
+					Callback: b.accountRead,
+				},
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.accountWrite,
+				},
+				logical.DeleteOperation: &framework.PathOperation{
+					Callback: b.accountDelete,
+				},
 			},
 		},
 	}
@@ -98,7 +107,7 @@ func getKeyType(t string) (certcrypto.KeyType, error) {
 	case "RSA8192":
 		return certcrypto.RSA8192, nil
 	default:
-		return certcrypto.KeyType(""), fmt.Errorf("%q is not a supported key type", t)
+		return "", fmt.Errorf("%q is not a supported key type", t)
 	}
 }
 
@@ -130,7 +139,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 		}
 		privateKey, err := certcrypto.GeneratePrivateKey(keyType)
 		if err != nil {
-			return nil, errwrap.Wrapf("Failed to generate account key pair: {{err}}", err)
+			return nil, fmt.Errorf("failed to generate account key pair: %w", err)
 		}
 
 		user = &account{
@@ -180,7 +189,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	user.Registration = reg
 
 	if err != nil {
-		return nil, errwrap.Wrapf("Failed to create storage entry: {{err}}", err)
+		return nil, fmt.Errorf("failed to create storage entry: %w", err)
 	}
 
 	b.Logger().Info("Saving account")
@@ -191,7 +200,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	return b.accountRead(ctx, req, data)
 }
 
-func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) accountRead(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	a, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
 		return nil, err
@@ -217,7 +226,7 @@ func (b *backend) accountRead(ctx context.Context, req *logical.Request, data *f
 	}, nil
 }
 
-func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) accountDelete(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	a, err := getAccount(ctx, req.Storage, req.Path)
 	if err != nil {
 		return nil, err
@@ -228,11 +237,11 @@ func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data 
 
 	client, err := a.getClient()
 	if err != nil {
-		return nil, errwrap.Wrapf("Failed to instanciate new client: {{err}}", err)
+		return nil, fmt.Errorf("failed to instanciate new client: %w", err)
 	}
 
 	if err = client.Registration.DeleteRegistration(); err != nil {
-		return nil, errwrap.Wrapf("Failed to deactivate registration: {{err}}", err)
+		return nil, fmt.Errorf("failed to deactivate registration: %w", err)
 	}
 
 	err = req.Storage.Delete(ctx, req.Path)
@@ -240,7 +249,7 @@ func (b *backend) accountDelete(ctx context.Context, req *logical.Request, data 
 	return nil, err
 }
 
-func (b *backend) accountList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) accountList(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	entries, err := req.Storage.List(ctx, "accounts/")
 	if err != nil {
 		return nil, err

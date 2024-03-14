@@ -15,14 +15,18 @@ func pathCache(b *backend) *framework.Path {
 				Type: framework.TypeInt,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation:   b.cacheRead,
-			logical.DeleteOperation: b.cacheClear,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.cacheRead,
+			},
+			logical.DeleteOperation: &framework.PathOperation{
+				Callback: b.cacheClear,
+			},
 		},
 	}
 }
 
-func (b *backend) cacheRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) cacheRead(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.cache.Lock()
 	defer b.cache.Unlock()
 	keys, err := b.cache.List(ctx, req.Storage)
@@ -37,7 +41,7 @@ func (b *backend) cacheRead(ctx context.Context, req *logical.Request, data *fra
 	}, nil
 }
 
-func (b *backend) cacheClear(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) cacheClear(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.cache.Lock()
 	defer b.cache.Unlock()
 	err := b.cache.Clear(ctx, req.Storage)

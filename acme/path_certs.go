@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-acme/lego/v3/certcrypto"
-	"github.com/go-acme/lego/v3/certificate"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -30,8 +30,10 @@ func pathCerts(b *backend) *framework.Path {
 			},
 		},
 		ExistenceCheck: b.pathExistenceCheck,
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.CreateOperation: b.certCreate,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.CreateOperation: &framework.PathOperation{
+				Callback: b.certCreate,
+			},
 		},
 	}
 }

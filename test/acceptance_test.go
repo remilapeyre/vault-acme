@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -69,7 +69,7 @@ func TestVault(t *testing.T) {
 		}
 		vault.Process.Wait()
 	})
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 
 	config := api.DefaultConfig()
 	config.Address = "http://127.0.0.1:8200"
@@ -78,7 +78,7 @@ func TestVault(t *testing.T) {
 	client.SetToken("foo")
 
 	logical := client.Logical()
-	b, err := ioutil.ReadFile("../build/acme")
+	b, err := os.ReadFile("../build/acme")
 	require.NoError(t, err)
 	sum := sha256.Sum256(b)
 
@@ -192,7 +192,7 @@ func getCertificateStatus(t *testing.T, url string) string {
 	require.NoError(t, err)
 
 	var data map[string]interface{}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	err = json.Unmarshal(b, &data)
 	require.NoError(t, err)

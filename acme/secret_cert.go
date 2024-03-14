@@ -41,14 +41,14 @@ func secretCert(b *backend) *framework.Secret {
 	}
 }
 
-func (b *backend) certRenew(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) certRenew(_ context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	resp := &logical.Response{Secret: req.Secret}
 	// I'm not really sure about this
 	resp.Secret.TTL = resp.Secret.TTL + req.Secret.Increment
 	return resp, nil
 }
 
-func (b *backend) certRevoke(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) certRevoke(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	b.cache.Lock()
 	defer b.cache.Unlock()
 	cacheKey := req.Secret.InternalData["cache_key"].(string)
