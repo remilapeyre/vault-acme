@@ -58,6 +58,10 @@ func (b *backend) certRevoke(ctx context.Context, req *logical.Request, _ *frame
 		return nil, err
 	}
 
+	if ce == nil {
+		return nil, fmt.Errorf("cache entry not found for key: %s", cacheKey)
+	}
+
 	ce.Users--
 	if ce.Users > 0 {
 		err = ce.Save(ctx, req.Storage, cacheKey)
